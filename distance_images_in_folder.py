@@ -44,15 +44,19 @@ import src.align.detect_face as detect_face
 
 
 def main(args):
-    image_files = load_and_align_data(args.image_files, args.image_size, args.margin, args.gpu_memory_fraction)
-    all_image_path_num = len(image_files)
-    chosen_img_index = get_index_every_nth(image_files, args.batch_size)
+    image_path_tmp = os.listdir(args.image_path[0])
+    print(image_path_tmp)
+    image_paths = [args.image_path[0] + '/' + f for f in image_path_tmp]
+    print(image_paths)
+    # image_files = load_and_align_data(image_paths, args.image_size, args.margin, args.gpu_memory_fraction)
+    all_image_path_num = len(image_path_tmp)
+    chosen_img_index = get_index_every_nth(image_paths, args.batch_size)
     print(chosen_img_index)
     print('===============++++++++++++++++++++================')
     with tf.Graph().as_default():
         with tf.Session() as sess:
             # Load the model
-            facenet.load_model(args.model)
+            facenet.load_model(args.model_path)
             # Get input and output tensors
             images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")
             embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
@@ -61,7 +65,7 @@ def main(args):
             # Run forward pass to calculate embeddings
             for k in np.arange(len(chosen_img_index)-1):
                 # print('=====================k is {}=============='.format(k))
-                image_sub_files = image_files[chosen_img_index[k]+1:chosen_img_index[k+1]+1]
+                image_sub_files = image_paths[chosen_img_index[k]+1:chosen_img_index[k+1]+1]
                 # print('=========== image sub files ===============')
                 # print(image_sub_files)
                 # print(image_files)
@@ -78,20 +82,19 @@ def main(args):
                 # print('embedding size is {}'.format(sess.run(embeddings,feed_dict=feed_dict)))
                 emb[chosen_img_index[k]+1:chosen_img_index[k+1]+1, :] = sess.run(embeddings, feed_dict=feed_dict)
 
-
     dist = calculate_distance_matrix(emb)
-    folder_name = args.folder_path[0]
+    folder_name = args.out_put_emb[0]
 
-    with open(os.path.join(folder_name, 'emb.txt'), 'wb') as f:
+    with open(folder_name + '/' + 'emb.txt', 'wb') as f:
         np.savetxt(f, emb, fmt='%1.6f')
-    with open(os.path.join(folder_name, 'average_emb.txt'), 'wb') as f:
+    with open(folder_name + '/' + 'average_emb.txt', 'wb') as f:
         np.savetxt(f, np.mean(emb, axis=0), fmt='%1.6f')
-    with open(os.path.join(folder_name, 'distance.txt'), 'wb') as f:
+    with open(folder_name + '/' + 'distance.txt', 'wb') as f:
         np.savetxt(f, dist, fmt='%.4f')
 
     ### show the distance matrix if needed
     for i in range(all_image_path_num):
-        print('%1d: %s' % (i, image_files[i]))
+        print('%1d: %s' % (i, image_paths[i]))
     print('')
     for i in range(np.shape(dist)[0]):
         print('     %1d     ' % i, end='')
@@ -186,11 +189,12 @@ def load_png_image_of_folder(folder_path):
 def load_png_files(image_paths, image_size):
     """Due to we have cropped the images for faces, there is no need to redo MTCNN net"""
     img_list = []
+    print(image_paths)
     for image in image_paths:
         img = misc.imread(os.path.expanduser(image), mode='RGB')
         img = misc.imresize(img, (image_size, image_size), interp='bilinear')
-        img_list.append(img)
-
+        prewhitened = facenet.prewhiten(img)
+        img_list.append(prewhitened)
     images = np.stack(img_list)
     return images
 
@@ -239,9 +243,10 @@ def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction):
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('model', type=str,
+    parser.add_argument('model_path', type=str,
                         help='Could be either a directory containing the meta_file and ckpt_file or a model protobuf (.pb) file')
-    parser.add_argument('image_files', type=str, nargs='+', help='Folder')
+    parser.add_argument('image_path', type=str, nargs='+', help='Folder')
+    parser.add_argument('out_put_emb', type=str, nargs='+', help='Folder')
     parser.add_argument('--batch_size', type=int, help='batch size for embedding', default=6)
     parser.add_argument('--image_size', type=int,
                         help='Image size (height, width) in pixels.', default=160)
