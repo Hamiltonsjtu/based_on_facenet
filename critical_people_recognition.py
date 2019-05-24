@@ -144,7 +144,6 @@ def visulize_img_crop(img_data, det_arr):
     plt.imshow(img_data)
     # Get the current reference
     ax = plt.gca()
-    # plt.figure()
     if np.shape(det_arr)[0] > 0:
         num_box = np.shape(det_arr)[0]
         # # Generate random colors

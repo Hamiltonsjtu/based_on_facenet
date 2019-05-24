@@ -40,11 +40,12 @@ def calculate_distance_emb_diff(emb, emb_average):
 
 
 people = ['xijinping', 'hujintao', 'jiangzemin', 'dengxiaoping', 'wenjiabao', 'maozedong', 'zhouenlai']
+# people = ['dengxiaoping']
 attrib = ['emb', 'average_emb']
 emb_data = multi(people, attrib, {})
 for i in people:
     for j in attrib:
-        emb_data[i][j] = np.loadtxt('data/images_cropped/'+i+'/'+j+'.txt', delimiter=' ')
+        emb_data[i][j] = np.loadtxt('data/images_cropped/'+i+'/0/'+j+'.txt', delimiter=' ')
 
 # print('====================')
 # print('emb_data key {}, emb_vector_shape {} and average emb_vector shape {}'.format(emb_data['xijinping'].keys(), np.shape(emb_data['xijinping']['emb']),np.shape(emb_data['xijinping']['average_emb'])))

@@ -38,9 +38,12 @@ import sys
 import os
 import copy
 import argparse
+import matplotlib.pyplot as plt
+from matplotlib import patches, lines
 from sklearn.cluster import KMeans
+sys.path.append("src") # useful for the import of facenet in another folder
 import src.facenet as facenet
-import src.align.detect_face as detect_face
+import align.detect_face
 
 
 def main(args):
@@ -66,20 +69,8 @@ def main(args):
             for k in np.arange(len(chosen_img_index)-1):
                 # print('=====================k is {}=============='.format(k))
                 image_sub_files = image_paths[chosen_img_index[k]+1:chosen_img_index[k+1]+1]
-                # print('=========== image sub files ===============')
-                # print(image_sub_files)
-                # print(image_files)
-                images = load_png_files(image_sub_files,args.image_size)
-                print('===============================================')
-                print('feed image type {}'.format(type(images)))
-                print('shpe of feed image {}'.format(np.shape(images)))
-                # images = load_and_align_data(image_sub_files, args.image_size, args.margin, args.gpu_memory_fraction)
+                images = load_and_align_data(image_sub_files, args.image_size, args.margin, args.gpu_memory_fraction)
                 feed_dict = {images_placeholder: images, phase_train_placeholder: False}
-                # print(np.shape(emb))
-                # print(sess.run(embeddings, feed_dict=feed_dict))
-                # print('============+++++++++++++++++=================')
-                # print('chosen image index from {} to {}'.format(chosen_img_index[k]+1,chosen_img_index[k+1]+1))
-                # print('embedding size is {}'.format(sess.run(embeddings,feed_dict=feed_dict)))
                 emb[chosen_img_index[k]+1:chosen_img_index[k+1]+1, :] = sess.run(embeddings, feed_dict=feed_dict)
 
     dist = calculate_distance_matrix(emb)
@@ -91,47 +82,42 @@ def main(args):
         np.savetxt(f, np.mean(emb, axis=0), fmt='%1.6f')
     with open(folder_name + '/' + 'distance.txt', 'wb') as f:
         np.savetxt(f, dist, fmt='%.4f')
+    #
+    # ### show the distance matrix if needed
+    # for i in range(all_image_path_num):
+    #     print('%1d: %s' % (i, image_paths[i]))
+    # print('')
+    # for i in range(np.shape(dist)[0]):
+    #     print('     %1d     ' % i, end='')
+    # print('')
+    # for i in range(np.shape(dist)[0]):
+    #     print('%1d  ' % i, end='')
+    #     for j in range(np.shape(dist)[1]):
+    #         print('  %1.4f  ' % dist[i,j], end='')
+    #     print('')
 
-    ### show the distance matrix if needed
-    for i in range(all_image_path_num):
-        print('%1d: %s' % (i, image_paths[i]))
-    print('')
-    for i in range(np.shape(dist)[0]):
-        print('     %1d     ' % i, end='')
-    print('')
-    for i in range(np.shape(dist)[0]):
-        print('%1d  ' % i, end='')
-        for j in range(np.shape(dist)[1]):
-            print('  %1.4f  ' % dist[i,j], end='')
-        print('')
 
+def visulize_img_crop(img_data, det_arr):
+    # Display the image
+    plt.imshow(img_data)
+    # Get the current reference
+    ax = plt.gca()
+    if np.shape(det_arr)[0] > 0:
+        num_box = np.shape(det_arr)[0]
+        # # Generate random colors
+        colors = random_colors(num_box)
+        #
+        for i in range(num_box):
+            color = colors[i]
+            # Show area outside image boundaries.
+            x1, y1, x2, y2 = det_arr[i]
+            p = patches.Rectangle((x1, y1), x2 - x1, y2 - y1, linewidth=2,
+                                  alpha=0.7, linestyle="dashed",
+                                  edgecolor=color, facecolor='none')
+            ax.add_patch(p)
 
-# def cluster_not_same_class_image(embedding_feature):
-#     """
-#     :param embedding_matrix: the embedding feature matrix
-#     :return: True or False
-#     """
-#     kmeans = KMeans(n_clusters=2, random_state=0).fix(embedding_feature)
+    plt.show()
 
-            # print('feature embedding shape is {}'.format(np.shape(emb)))
-            #
-            # print('Images:')
-            # for i in range(nrof_images):
-            #     print('%1d: %s' % (i, image_files[i]))
-            # print('')
-            #
-            # # Print distance matrix
-            # print('Distance matrix')
-            # print('    ', end='')
-            # for i in range(nrof_images):
-            #     print('    %1d     ' % i, end='')
-            # print('')
-            # for i in range(nrof_images):
-            #     print('%1d  ' % i, end='')
-            #     for j in range(nrof_images):
-            #         dist = np.sqrt(np.sum(np.square(np.subtract(emb[i, :], emb[j, :]))))
-            #         print('  %1.4f  ' % dist, end='')
-            #     print('')
 
 
 def calculate_distance_matrix(matrix):
@@ -173,7 +159,6 @@ def get_index_every_nth(given_list, n):
     return re
 
 
-
 def load_png_image_of_folder(folder_path):
     image_paths = []
     folder_path = folder_path[0]
@@ -209,20 +194,17 @@ def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction):
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gpu_memory_fraction)
         sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=False))
         with sess.as_default():
-            pnet, rnet, onet = detect_face.create_mtcnn(sess, None)
+            pnet, rnet, onet = align.detect_face.create_mtcnn(sess, None)
 
     tmp_image_paths = copy.copy(image_paths)
     img_list = []
     for image in tmp_image_paths:
-        # print('======================')
-        # print(image)
         img = misc.imread(os.path.expanduser(image), mode='RGB')
         img_size = np.asarray(img.shape)[0:2]
-        bounding_boxes, _ = detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold, factor)
+        bounding_boxes, _ = align.detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold, factor)
         if len(bounding_boxes) < 1:
-            img_list.append(img)
-            # image_paths.remove(image)
-            print("can't detect face, do not crop this one ", image)
+            image_paths.remove(image)
+            print("can't detect face, remove ", image)
             continue
         det = np.squeeze(bounding_boxes[0, 0:4])
         bb = np.zeros(4, dtype=np.int32)
@@ -234,15 +216,12 @@ def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction):
         aligned = misc.imresize(cropped, (image_size, image_size), interp='bilinear')
         prewhitened = facenet.prewhiten(aligned)
         img_list.append(prewhitened)
-        # print('====================')
-        # print(np.shape(img_list))
     images = np.stack(img_list)
     return images
 
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
-
     parser.add_argument('model_path', type=str,
                         help='Could be either a directory containing the meta_file and ckpt_file or a model protobuf (.pb) file')
     parser.add_argument('image_path', type=str, nargs='+', help='Folder')
