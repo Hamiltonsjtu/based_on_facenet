@@ -204,7 +204,7 @@ def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction):
         img_size = np.asarray(img.shape)[0:2]
         bounding_boxes, _ = align.detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold, factor)
         if len(bounding_boxes) < 1:
-            bounding_boxes = np.array([24.11117871, 20.92340004,126.24065695,139.88384303,0.99999821])
+            bounding_boxes = np.array([[24.11117871, 20.92340004, 126.24065695, 139.88384303, 0.99999821]])
             # image_paths.remove(image)
             print("can't detect face, set random Bounding Box ", image)
             # cropped = img

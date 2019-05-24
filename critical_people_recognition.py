@@ -114,9 +114,7 @@ def detect_faces(args):
             cropped = img[bb[1]:bb[3], bb[0]:bb[2], :]
             crop_img = misc.imresize(cropped, (args.image_size, args.image_size), interp='bilinear')
             # print(type(crop_img))
-
             prewhitened = facenet.prewhiten(crop_img)
-
             # print(np.shape(crop_img))
             scaled.append(prewhitened)
             nrof_successfully_aligned += 1
@@ -124,6 +122,45 @@ def detect_faces(args):
     else:
         print('Unable to align "%s"' %args.img_dir)
     return img, det_arr, scaled
+
+
+def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction):
+    minsize = 20  # minimum size of face
+    threshold = [0.6, 0.7, 0.7]  # three steps's threshold
+    factor = 0.709  # scale factor
+
+    print('Creating networks and loading parameters')
+    with tf.Graph().as_default():
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gpu_memory_fraction)
+        sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=False))
+        with sess.as_default():
+            pnet, rnet, onet = align.detect_face.create_mtcnn(sess, None)
+
+    tmp_image_paths = copy.copy(image_paths)
+    img_list = []
+    for image in tmp_image_paths:
+        img = misc.imread(os.path.expanduser(image), mode='RGB')
+        img_size = np.asarray(img.shape)[0:2]
+        bounding_boxes, _ = align.detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold, factor)
+        if len(bounding_boxes) < 1:
+            bounding_boxes = np.array([[24.11117871, 20.92340004, 126.24065695, 139.88384303, 0.99999821]])
+            # image_paths.remove(image)
+            print("can't detect face, set random Bounding Box ", image)
+            # cropped = img
+            # continue
+        det = np.squeeze(bounding_boxes[0, 0:4])
+        # print('bounding_boxes is {}'.format(bounding_boxes))
+        bb = np.zeros(4, dtype=np.int32)
+        bb[0] = np.maximum(det[0] - margin / 2, 0)
+        bb[1] = np.maximum(det[1] - margin / 2, 0)
+        bb[2] = np.minimum(det[2] + margin / 2, img_size[1])
+        bb[3] = np.minimum(det[3] + margin / 2, img_size[0])
+        cropped = img[bb[1]:bb[3], bb[0]:bb[2], :]
+        aligned = misc.imresize(cropped, (image_size, image_size), interp='bilinear')
+        prewhitened = facenet.prewhiten(aligned)
+        img_list.append(prewhitened)
+    images = np.stack(img_list)
+    return images
 
 
 def random_colors(N, bright=True):
@@ -188,6 +225,10 @@ def calculate_embedding(model_dir, scaled):
             emb_array = sess.run(embeddings, feed_dict=feed_dict)
     return emb_array
 
+
+def load_emb_arr_peoples():
+    emb_arr_peoples = 0
+    return emb_arr_peoples
 
 def calculate_distance_matrix(emb_array, emb_critical_data):
     """
