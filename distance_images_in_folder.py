@@ -72,6 +72,7 @@ def main(args):
                 images = load_and_align_data(image_sub_files, args.image_size, args.margin, args.gpu_memory_fraction)
                 feed_dict = {images_placeholder: images, phase_train_placeholder: False}
                 emb[chosen_img_index[k]+1:chosen_img_index[k+1]+1, :] = sess.run(embeddings, feed_dict=feed_dict)
+                # print('num of images is {} and num of embedding is {}'.format(np.shape(image_sub_files), np.shape(embeddings)))
 
     dist = calculate_distance_matrix(emb)
     folder_name = args.out_put_emb[0]
@@ -203,10 +204,13 @@ def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction):
         img_size = np.asarray(img.shape)[0:2]
         bounding_boxes, _ = align.detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold, factor)
         if len(bounding_boxes) < 1:
-            image_paths.remove(image)
-            print("can't detect face, remove ", image)
-            continue
+            bounding_boxes = np.array([24.11117871, 20.92340004,126.24065695,139.88384303,0.99999821])
+            # image_paths.remove(image)
+            print("can't detect face, set random Bounding Box ", image)
+            # cropped = img
+            # continue
         det = np.squeeze(bounding_boxes[0, 0:4])
+        # print('bounding_boxes is {}'.format(bounding_boxes))
         bb = np.zeros(4, dtype=np.int32)
         bb[0] = np.maximum(det[0] - margin / 2, 0)
         bb[1] = np.maximum(det[1] - margin / 2, 0)
