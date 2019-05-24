@@ -67,7 +67,7 @@ from six.moves import xrange
 
 def main(args):
     train_set = facenet.get_dataset(args.data_dir)
-    print('dataset {} and its type {}'.format(train_set, type(train_set)))
+    # print('dataset {} and its type {}'.format(train_set, type(train_set)))
 
     image_list, label_list = facenet.get_image_paths_and_labels(train_set)
     # fetch the classes (labels as strings) exactly as it's done in get_dataset
@@ -76,8 +76,7 @@ def main(args):
                if os.path.isdir(os.path.join(path_exp, path))]
     classes.sort()
     # get the label strings
-    label_strings = [name for name in classes if \
-       os.path.isdir(os.path.join(path_exp, name))]
+    label_strings = [name for name in classes if os.path.isdir(os.path.join(path_exp, name))]
 
     with tf.Graph().as_default():
 
