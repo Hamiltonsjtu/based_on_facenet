@@ -56,53 +56,78 @@ for i in people:
         emb_data[i][j] = np.loadtxt('data/images_cropped/' + i + '/' + j + '.txt', delimiter=' ')
     # print('num of standard images for {} is {}'.format(i, np.shape(emb_data[i]['emb'])))
     emb_data[i]['dist_emb'] = [np.sqrt(np.sum(np.square(np.subtract(k, emb_data[i]['average_emb'])))) for k in emb_data[i]['emb']]
+    emb_data[i]['log_dist'] = np.log(emb_data[i]['dist_emb'])
 
-    # DBSCAN is the only algorithm that doesn't require the number of clusters to be defined.
-    matrix = emb_data[i]['distance']
-    db = DBSCAN(eps=0.7, min_samples=1, metric='precomputed')
-    db.fit(matrix)
-    labels = db.labels_
-    no_clusters = len(set(labels)) - (1 if -1 in labels else 0)
-    print('{} has {} of clusters:'.format(i, no_clusters))
+emb_ = np.loadtxt('hu_emb.txt', delimiter=' ')
+n = np.shape(emb_)[0]
+if n == 128:
+    print('======== Only one face in picture DISTANCE ========')
+    emb_jack = emb_
+    jack_dist = multi(people, ['dist_all', 'dist_average', 'dist_all_average'], {})
+    for i in people:
+        jack_dist[i]['dist_average'] = [np.sqrt(np.sum(np.square(np.subtract(emb_jack, emb_data[i]['average_emb']))))]
+        jack_dist[i]['dist_all'] = [np.sqrt(np.sum(np.square(np.subtract(emb_jack, k)))) for k in emb_data[i]['emb']]
+        jack_dist[i]['dist_all_average'] = np.mean(jack_dist[i]['dist_all'])
+        print('dist_all_average for {} is {}'.format(i, jack_dist[i]['dist_all_average']))
+        print('dist_average for {} is {}'.format(i, jack_dist[i]['dist_average']))
+else:
+    for l in range(n):
+        print('======== START CALCULATE THE {}-th face DISTANCE ========'.format(l))
+        emb_jack = emb_[l,:]
+        jack_dist = multi(people, ['dist_all', 'dist_average', 'dist_all_average'], {})
+        for i in people:
+            jack_dist[i]['dist_average'] = [np.sqrt(np.sum(np.square(np.subtract(emb_jack, emb_data[i]['average_emb']))))]
+            jack_dist[i]['dist_all'] = [np.sqrt(np.sum(np.square(np.subtract(emb_jack, k)))) for k in emb_data[i]['emb']]
+            jack_dist[i]['dist_all_average'] = np.mean(jack_dist[i]['dist_all'])
+            print('dist_all_average for {} is {}'.format(i, jack_dist[i]['dist_all_average']))
+            print('dist_average for {} is {}'.format(i, jack_dist[i]['dist_average']))
+        # print('=============== DBSCAN ===============')
+    # # DBSCAN is the only algorithm that doesn't require the number of clusters to be defined.
+    # matrix = emb_data[i]['distance']
+    # db = DBSCAN(eps=0.75, min_samples=1, metric='precomputed')
+    # db.fit(matrix)
+    # labels = db.labels_
+    # no_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+    # print('DBSACN: {} has {} of clusters:'.format(i, no_clusters))
 
+# attrib = ['emb', 'distance', 'average_emb']
+# people = ['ALL']
+# emb_data_test = multi(people, attrib, {})
 
-attrib = ['emb', 'distance', 'average_emb']
-people = ['ALL']
-emb_data_test = multi(people, attrib, {})
+# for i in people:
+#     for j in attrib:
+#         emb_data_test[i][j] = np.loadtxt('data/images_cropped/' + i + '/' + j + '.txt', delimiter=' ')
+#     print('=============== DBSCAN ===============')
+#     # DBSCAN is the only algorithm that doesn't require the number of clusters to be defined.
+#     matrix = emb_data_test['ALL']['distance']
+#     db = DBSCAN(eps=0.8, min_samples=1, metric='precomputed')
+#     db.fit(matrix)
+#     labels = db.labels_
+#     print('============================')
+#     print(labels)
+#     no_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+#     print('ALL has {} of clusters:'.format(no_clusters))
+#
+#     print('=============== GMM ===============')
+#     estimator = GaussianMixture(n_components=7, covariance_type='full')
+#     dist_matrix = emb_data_test['ALL']['distance']
+#     estimator.fit(dist_matrix)
+#     pred = estimator.predict(dist_matrix)
+#     proba = estimator.predict_proba(dist_matrix[10:])
+#     scores = estimator.score_samples(dist_matrix)
+#     print('pred', pred)
+#     # print('proba', proba)
+#     # print('scores', scores)
+#     # print('n_components', estimator.n_components)
+#     # print('means', estimator.means_)
+#     e_mean = estimator.means_
+#     no_clusters = len(set(pred)) - (1 if -1 in pred else 0)
+#     print('number of cluster ', no_clusters)
 
-for j in attrib:
-    emb_data_test['ALL'][j] = np.loadtxt('data/images_cropped/' + 'ALL' + '/' + j + '.txt', delimiter=' ')
-    # DBSCAN is the only algorithm that doesn't require the number of clusters to be defined.
-matrix = emb_data_test['ALL']['distance']
-db = DBSCAN(eps=0.7, min_samples=1, metric='precomputed')
-db.fit(matrix)
-labels = db.labels_
-print('============================')
-print(labels)
-no_clusters = len(set(labels)) - (1 if -1 in labels else 0)
-print('ALL has {} of clusters:'.format(no_clusters))
-
-print('=============== GMM ===============')
-estimator = GaussianMixture(n_components=7, covariance_type='full')
-dist_matrix = emb_data_test['ALL']['distance']
-estimator.fit(dist_matrix)
-pred = estimator.predict(dist_matrix)
-proba = estimator.predict_proba(dist_matrix[10:])
-scores = estimator.score_samples(dist_matrix)
-print('pred', pred)
-# print('proba', proba)
-# print('scores', scores)
-# print('n_components', estimator.n_components)
-# print('means', estimator.means_)
-e_mean = estimator.means_
-no_clusters = len(set(pred)) - (1 if -1 in pred else 0)
-print('number of cluster ', no_clusters)
-
-# # for i in range(e_mean.shape[0]):
-# #    print('index',e_mean[i].index(min(e_mean[i])))
-# print('shape of means', estimator.means_.shape)
-# print('weights', estimator.weights_)
-
+#
+# print('==============++++++++++++===============')
+# for i in people:
+#     print('the distance for {} is {}'.format(i, np.max(emb_data[i]['dist_emb'])))
 
     # print(emb_data[i]['dist_emb'])
 # print('=============xijinping emb arr==============')
@@ -119,11 +144,12 @@ print('number of cluster ', no_clusters)
 #     print('location \'' + i + '\' is {}'.format(np.where(dist_diff[i] >= np.max(dist_diff[i]))[0]))
 # print(dist_diff['xijinping'])
 
-# fig = plt.figure()
-# ax1 = plt.subplot(2,4,1)
-# dist_matrix = emb_data['xijinping']['dist_emb']
+# for i in people:
+#     fig = plt.figure()
+#     plt.hist(emb_data[i]['log_dist'], histtype='bar', align='mid', orientation='vertical')
+#     plt.show()
 # plt.hist((dist_matrix - np.mean(dist_matrix))/np.std(dist_matrix), histtype='bar', align='mid', orientation='vertical')
-#
+
 # ax1 = plt.subplot(2,4,2)
 # dist_matrix = emb_data['xijinping']['dist_emb']
 # plt.hist(dist_matrix, histtype='bar', align='mid', orientation='vertical')

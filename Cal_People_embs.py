@@ -65,7 +65,7 @@ def main(args):
             feed_dict = {images_placeholder: images, phase_train_placeholder: False}
             emb = sess.run(embeddings, feed_dict=feed_dict)
             nrof_images = len(images)
-            print('embeddings shape is {}'.format(emb.shape()))
+            print('embeddings shape is {}'.format(np.shape(emb)))
             print('images num is {} and cropped images number is {}'.format(len(image_list), nrof_images))
 
     dist = calculate_distance_matrix(emb)
