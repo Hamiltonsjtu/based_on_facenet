@@ -57,7 +57,7 @@ import numpy as np
 import sys
 import os
 import argparse
-sys.path.append("src") # useful for the import of facenet in another folder
+sys.path.append("../src") # useful for the import of facenet in another folder
 
 import facenet
 import align.detect_face
@@ -67,8 +67,6 @@ from six.moves import xrange
 
 def main(args):
     train_set = facenet.get_dataset(args.data_dir)
-    # print('dataset {} and its type {}'.format(train_set, type(train_set)))
-
     image_list, label_list = facenet.get_image_paths_and_labels(train_set)
     # fetch the classes (labels as strings) exactly as it's done in get_dataset
     path_exp = os.path.expanduser(args.data_dir)
@@ -76,7 +74,8 @@ def main(args):
                if os.path.isdir(os.path.join(path_exp, path))]
     classes.sort()
     # get the label strings
-    label_strings = [name for name in classes if os.path.isdir(os.path.join(path_exp, name))]
+    label_strings = [name for name in classes if \
+       os.path.isdir(os.path.join(path_exp, name))]
 
     with tf.Graph().as_default():
 
@@ -113,46 +112,22 @@ def main(args):
                     images = facenet.load_data(image_list[i*batch_size:n], False, False, args.image_size)
                 else:
                     images = load_and_align_data(image_list[i*batch_size:n], args.image_size, args.margin, args.gpu_memory_fraction)
-                feed_dict = { images_placeholder: images, phase_train_placeholder:False }
+                feed_dict = {images_placeholder: images, phase_train_placeholder:False }
                 # Use the facenet model to calcualte embeddings
                 embed = sess.run(embeddings, feed_dict=feed_dict)
                 emb_array[i*batch_size:n, :] = embed
                 print('Completed batch', i+1, 'of', nrof_batches)
 
-            dist = calculate_distance_matrix(emb_array)
+            run_time = time.time() - start_time
+            print('Run time: ', run_time)
 
-            with open(args.data_dir + '/' + 'emb.txt', 'wb') as f:
-                np.savetxt(f, emb_array, fmt='%1.6f')
-            with open(args.data_dir + '/' + 'dist.txt', 'wb') as f:
-                np.savetxt(f, emb_array, fmt='%1.6f')
-            with open(args.data_dir + '/' + 'average_emb.txt', 'wb') as f:
-                np.savetxt(f, np.mean(emb_array, axis=0), fmt='%1.6f')
+            #   export emedings and labels
+            label_list  = np.array(label_list)
 
-            # run_time = time.time() - start_time
-            # print('Run time: ', run_time)
-            #
-            # #   export emedings and labels
-            # label_list  = np.array(label_list)
-            #
-            # np.save(args.embeddings_name, emb_array)
-            # np.save(args.labels_name, label_list)
-            # label_strings = np.array(label_strings)
-            # np.save(args.labels_strings_name, label_strings[label_list])
-
-
-def calculate_distance_matrix(matrix):
-    """
-    :param matrix: the input feature ebedding matrix, each row present the feature vector of one identity people's face,
-                   and cols present the different faces
-    :return: coorelation matrix
-    """
-    n, m = np.shape(matrix)
-    dist = np.zeros((n, n))
-    for i in range(n):
-        for j in range(n):
-            dist[i, j] = np.sqrt(np.sum(np.square(np.subtract(matrix[i, :], matrix[j, :]))))
-
-    return dist
+            np.save(args.embeddings_name, emb_array)
+            np.save(args.labels_name, label_list)
+            label_strings = np.array(label_strings)
+            np.save(args.labels_strings_name, label_strings[label_list])
 
 
 def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction):
@@ -187,7 +162,6 @@ def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction):
         img_list[i] = prewhitened
     images = np.stack(img_list)
     return images
-
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()

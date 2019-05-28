@@ -26,10 +26,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from scipy import misc
-import tensorflow as tf
-import numpy as np
-import os
+
 import sys
 import argparse
 sys.path.append("src") # useful for the import of facenet in another folder
@@ -42,27 +39,34 @@ from sklearn.mixture import BayesianGaussianMixture
 import matplotlib.pyplot as plt
 
 
+from scipy import misc
+import tensorflow as tf
+import numpy as np
+import pandas as pd
+import sys
+import os
+import copy
+import argparse
+import matplotlib.pyplot as plt
+from matplotlib import patches, lines
+from sklearn.cluster import KMeans
+
+
 def main(args):
-    n_classes = 10
     pnet, rnet, onet = create_network_face_detection(args.gpu_memory_fraction)
-
     with tf.Graph().as_default():
-
         with tf.Session() as sess:
             facenet.load_model(args.model)
-
             image_list = load_images_from_folder(args.data_dir)
             images = align_data(image_list, args.image_size, args.margin, pnet, rnet, onet)
-
             images_placeholder = sess.graph.get_tensor_by_name("input:0")
             embeddings = sess.graph.get_tensor_by_name("embeddings:0")
             phase_train_placeholder = sess.graph.get_tensor_by_name("phase_train:0")
             feed_dict = {images_placeholder: images, phase_train_placeholder: False}
             emb = sess.run(embeddings, feed_dict=feed_dict)
-
             nrof_images = len(images)
-            print('embeddings', emb.shape)
-            print('images', nrof_images)
+            print('embeddings shape is {}'.format(emb.shape()))
+            print('images num is {} and cropped images number is {}'.format(len(image_list), nrof_images))
 
     dist = calculate_distance_matrix(emb)
     folder_name = args.out_dir
@@ -79,6 +83,7 @@ def main(args):
     with open(folder_name + '/' + 'distance.txt', 'wb') as f:
         np.savetxt(f, dist, fmt='%.4f')
 
+
 def calculate_distance_matrix(matrix):
     """
     :param matrix: the input feature ebedding matrix, each row present the feature vector of one identity people's face,
@@ -90,7 +95,6 @@ def calculate_distance_matrix(matrix):
     for i in range(n):
         for j in range(n):
             dist[i, j] = np.sqrt(np.sum(np.square(np.subtract(matrix[i, :], matrix[j, :]))))
-
     return dist
 
 
@@ -98,9 +102,7 @@ def align_data(image_list, image_size, margin, pnet, rnet, onet):
     minsize = 20  # minimum size of face
     threshold = [0.6, 0.7, 0.7]  # three steps's threshold
     factor = 0.709  # scale factor
-
     img_list = []
-
     for x in range(len(image_list)):
         img_size = np.asarray(image_list[x].shape)[0:2]
         bounding_boxes, _ = align.detect_face.detect_face(image_list[x], minsize, pnet, rnet, onet, threshold, factor)
@@ -118,7 +120,6 @@ def align_data(image_list, image_size, margin, pnet, rnet, onet):
                     aligned = misc.imresize(cropped, (image_size, image_size), interp='bilinear')
                     prewhitened = facenet.prewhiten(aligned)
                     img_list.append(prewhitened)
-
     if len(img_list) > 0:
         images = np.stack(img_list)
         return images

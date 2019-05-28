@@ -31,6 +31,9 @@ import facenet
 import align.detect_face
 
 
+Class
+
+
 def load_embedding_critical_people(emb_dir):
     """
     :param emb_critical_dir: the embedding vector direction for critical people
@@ -42,7 +45,7 @@ def load_embedding_critical_people(emb_dir):
 
     for i, name in enumerate(people):
 
-        path = os.path.join(emb_dir, name + '_average_emb.txt')
+        path = os.path.join(emb_dir, name + '/' + 'emb.txt')
         emb_tmp = np.loadtxt(path, delimiter=' ',  unpack=True) # 1d array of numpy can not be transposed.
         emb_critical_data[i,:] = emb_tmp
 
