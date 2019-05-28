@@ -47,7 +47,7 @@ def main(args):
             emb = sess.run(embeddings, feed_dict=feed_dict)
             print('shape of embedding is {}'.format(np.shape(emb)))
             print('==============================================')
-    with open('e:/shuai/develop_facenet' + '/' + 'huying_emb.txt', 'wb') as f:
+    with open('e:/shuai/develop_facenet' + '/' + 'test_emb.txt', 'wb') as f:
         np.savetxt(f, emb, fmt='%1.6f')
 
 

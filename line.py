@@ -27,38 +27,17 @@ import sys
 import os
 import copy
 import argparse
-
-
-def load_emb():
-
-    people = ['xijinping', 'hujintao', 'jiangzemin', 'dengxiaoping', 'wenjiabao', 'maozedong', 'zhouenlai']
-    attrib = ['emb', 'distance', 'average_emb']
-    emb_data = multi(people, attrib, {})
-    for i in people:
-        for j in attrib:
-            emb_data[i][j] = np.loadtxt('data/images_cropped/' + i + '/' + j + '.txt', delimiter=' ')
-        # print('num of standard images for {} is {}'.format(i, np.shape(emb_data[i]['emb'])))
-        emb_data[i]['dist_emb'] = [np.sqrt(np.sum(np.square(np.subtract(k, emb_data[i]['average_emb'])))) for k in emb_data[i]['emb']]
-        emb_data[i]['log_dist'] = np.log(emb_data[i]['dist_emb'])
-    return emb_data
-
-
-def multi(*args):
-    """
-    Build multiple level dictionary for python
-    For example:
-        multi(['a', 'b'], ['A', 'B'], ['1', '2'], {})
-    returns
-        {   'a': {'A': {'1': {}, '2': {}}, 'B': {'1': {}, '2': {}}},
-            'b': {'A': {'1': {}, '2': {}}, 'B': {'1': {}, '2': {}}}}
-    """
-    if len(args) > 1:
-        return {arg:multi(*args[1:]) for arg in args[0]}
-    else:
-        return args[0]
+import scipy.stats as st
 
 
 def main(args):
+
+    #### load emb data
+    people = ['xijinping', 'hujintao', 'jiangzemin', 'dengxiaoping', 'wenjiabao', 'maozedong', 'zhouenlai']
+    attrib = ['emb', 'distance', 'average_emb']
+    emb_data = load_emb(people, attrib)
+    ####
+
     images = load_and_align_data(args.image_files, args.image_size, args.margin, args.gpu_memory_fraction, args.detect_multiple_faces)
     with tf.Graph().as_default():
         with tf.Session() as sess:
@@ -77,11 +56,49 @@ def main(args):
             print('shape of embedding is {}'.format(np.shape(emb)))
             print('==============================================')
 
-    emb_data = load_emb()
-    faces = str(range(np.shape(emb)[0]))
-    face_attri = ['face', 'all_emb_dist', 'ave_emb_dist']
-    emb_faces = multi(faces, face_attri, {})
+    n = np.shape(emb)[0]
+    for l in range(n):
+        print('======== START CALCULATE THE {}-th face DISTANCE ========'.format(l))
+        emb_jack = emb[l, :]
+        jack_dist = multi(people, ['dist_all', 'dist_average', 'dist_all_average'], {})
+        for i in people:
+            jack_dist[i]['dist_average'] = [
+                np.sqrt(np.sum(np.square(np.subtract(emb_jack, emb_data[i]['average_emb']))))]
+            jack_dist[i]['log_dist_average'] = np.log(jack_dist[i]['dist_average'])
+            jack_dist[i]['Z_value'] = (jack_dist[i]['log_dist_average'] - emb_data[i]['log_dist_mean'])/emb_data[i]['log_dist_std']
+            jack_dist[i]['Prob'] = 2 * st.norm.cdf(-np.abs(jack_dist[i]['Z_value']))
+            print('Z value for {} is {}'.format(i, jack_dist[i]['Z_value']))
+            print('The face is {} likely {}'.format(jack_dist[i]['Prob'], i))
 
+
+def load_emb(people, attrib):
+    emb_data = multi(people, attrib, {})
+    for i in people:
+        for j in attrib:
+            emb_data[i][j] = np.loadtxt('data/images_cropped/' + i + '/' + j + '.txt', delimiter=' ')
+        # print('num of standard images for {} is {}'.format(i, np.shape(emb_data[i]['emb'])))
+        emb_data[i]['dist_emb'] = [np.sqrt(np.sum(np.square(np.subtract(k, emb_data[i]['average_emb'])))) for k in
+                                   emb_data[i]['emb']]
+        emb_data[i]['log_dist'] = np.log(emb_data[i]['dist_emb'])
+        emb_data[i]['log_dist_mean'] = np.mean(emb_data[i]['log_dist'])
+        emb_data[i]['log_dist_std'] = np.std(emb_data[i]['log_dist'])
+        print('distance shape is {}'.format(np.shape(emb_data[i]['distance'])))
+    return emb_data
+
+
+def multi(*args):
+    """
+    Build multiple level dictionary for python
+    For example:
+        multi(['a', 'b'], ['A', 'B'], ['1', '2'], {})
+    returns
+        {   'a': {'A': {'1': {}, '2': {}}, 'B': {'1': {}, '2': {}}},
+            'b': {'A': {'1': {}, '2': {}}, 'B': {'1': {}, '2': {}}}}
+    """
+    if len(args) > 1:
+        return {arg:multi(*args[1:]) for arg in args[0]}
+    else:
+        return args[0]
 
 
 def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction,detect_multiple_faces):

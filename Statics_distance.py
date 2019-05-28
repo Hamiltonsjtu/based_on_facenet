@@ -9,6 +9,7 @@ import scipy as sci
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
+import scipy.stats as st
 
 sys.path.append("src") # useful for the import of facenet in another folder
 import align.detect_face
@@ -47,8 +48,19 @@ def calculate_distance_emb_diff(emb, emb_average):
     return dist
 
 
+def cal_likely(Z_value):
+    if Z_value == 0:
+        likely = 1
+    elif Z_value < 0:
+        likely = 2*st.norm.cdf(Z_value)
+    else:
+        likely = 1 - st.norm.cdf(-np.abs(Z_value))
+    return likely
+
+# print(cal_likely(1.554))
+# print(cal_likely(-1.554))
+
 people = ['xijinping', 'hujintao', 'jiangzemin', 'dengxiaoping', 'wenjiabao', 'maozedong', 'zhouenlai']
-# people = ['dengxiaoping']
 attrib = ['emb', 'distance', 'average_emb']
 emb_data = multi(people, attrib, {})
 for i in people:
@@ -57,8 +69,44 @@ for i in people:
     # print('num of standard images for {} is {}'.format(i, np.shape(emb_data[i]['emb'])))
     emb_data[i]['dist_emb'] = [np.sqrt(np.sum(np.square(np.subtract(k, emb_data[i]['average_emb'])))) for k in emb_data[i]['emb']]
     emb_data[i]['log_dist'] = np.log(emb_data[i]['dist_emb'])
+    emb_data[i]['log_dist_mean'] = np.mean(emb_data[i]['log_dist'])
+    emb_data[i]['log_dist_std'] = np.std(emb_data[i]['log_dist'])
+    print('distance shape is {}'.format(np.shape(emb_data[i]['distance'])))
 
-emb_ = np.loadtxt('hu_emb.txt', delimiter=' ')
+
+    # nn = np.shape(emb_data[i]['distance'])[0]
+    # emb_data[i]['log_all_dist'] = [np.log(emb_data[i]['distance'][kk,:]) for kk in range(nn)]
+    # emb_data[i]['log_all_dist'][np.isnan(emb_data[i]['log_all_dist'])] = 0
+    # db = DBSCAN(eps=0.7, min_samples=1, metric='precomputed')
+    # db.fit(emb_data[i]['log_all_dist'])
+    # labels = db.labels_
+    # no_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+    # print('DBSACN: {} has {} of clusters:'.format(i, no_clusters))
+
+#
+# emb_ = np.array([np.loadtxt('hu_emb.txt', delimiter=' ')])
+# # emb_ = []
+#
+# for i in people:
+#     emb_add_face = np.vstack((emb_data[i]['emb'], emb_))
+#     n, m = np.shape(emb_add_face)
+#     print('emb_add_face shape {}'.format(np.shape(emb_add_face)))
+#     dist_add_face = np.zeros((n, n))
+#     for ii in range(n):
+#         for jj in range(n):
+#             dist_add_face[ii,jj] = np.sqrt(np.sum(np.square(np.subtract(emb_add_face[ii,:], emb_add_face[jj,:]))))
+# # estimator = GaussianMixture(n_components=7, covariance_type='full')
+# # estimator.fit(dist_add_face)
+# # pred = estimator.predict(dist_add_face)
+# # # print('================ {} ===================='.format(i))
+# # print(pred)
+#     db = DBSCAN(eps=0.75, min_samples=1, metric='precomputed')
+#     db.fit(dist_add_face)
+#     labels = db.labels_
+#     no_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+#     print('DBSACN: {} has {} of clusters:'.format(i, no_clusters))
+
+emb_ = np.loadtxt('xi2017_emb.txt', delimiter=' ')
 n = np.shape(emb_)[0]
 if n == 128:
     print('======== Only one face in picture DISTANCE ========')
@@ -66,29 +114,37 @@ if n == 128:
     jack_dist = multi(people, ['dist_all', 'dist_average', 'dist_all_average'], {})
     for i in people:
         jack_dist[i]['dist_average'] = [np.sqrt(np.sum(np.square(np.subtract(emb_jack, emb_data[i]['average_emb']))))]
-        jack_dist[i]['dist_all'] = [np.sqrt(np.sum(np.square(np.subtract(emb_jack, k)))) for k in emb_data[i]['emb']]
-        jack_dist[i]['dist_all_average'] = np.mean(jack_dist[i]['dist_all'])
-        print('dist_all_average for {} is {}'.format(i, jack_dist[i]['dist_all_average']))
-        print('dist_average for {} is {}'.format(i, jack_dist[i]['dist_average']))
+        jack_dist[i]['log_dist_average'] = np.log(jack_dist[i]['dist_average'])
+        jack_dist[i]['Z_value'] = (jack_dist[i]['log_dist_average'] - emb_data[i]['log_dist_mean'])/emb_data[i]['log_dist_std']
+        jack_dist[i]['Prob'] = 2*st.norm.cdf(-np.abs(jack_dist[i]['Z_value']))
+        print('Z value for {} is {}'.format(i, jack_dist[i]['Z_value']))
+        print('The face is {} likely {}'.format(jack_dist[i]['Prob'], i))
 else:
     for l in range(n):
         print('======== START CALCULATE THE {}-th face DISTANCE ========'.format(l))
         emb_jack = emb_[l,:]
         jack_dist = multi(people, ['dist_all', 'dist_average', 'dist_all_average'], {})
         for i in people:
-            jack_dist[i]['dist_average'] = [np.sqrt(np.sum(np.square(np.subtract(emb_jack, emb_data[i]['average_emb']))))]
-            jack_dist[i]['dist_all'] = [np.sqrt(np.sum(np.square(np.subtract(emb_jack, k)))) for k in emb_data[i]['emb']]
-            jack_dist[i]['dist_all_average'] = np.mean(jack_dist[i]['dist_all'])
-            print('dist_all_average for {} is {}'.format(i, jack_dist[i]['dist_all_average']))
-            print('dist_average for {} is {}'.format(i, jack_dist[i]['dist_average']))
-        # print('=============== DBSCAN ===============')
-    # # DBSCAN is the only algorithm that doesn't require the number of clusters to be defined.
-    # matrix = emb_data[i]['distance']
-    # db = DBSCAN(eps=0.75, min_samples=1, metric='precomputed')
-    # db.fit(matrix)
-    # labels = db.labels_
-    # no_clusters = len(set(labels)) - (1 if -1 in labels else 0)
-    # print('DBSACN: {} has {} of clusters:'.format(i, no_clusters))
+            jack_dist[i]['dist_average'] = [
+                np.sqrt(np.sum(np.square(np.subtract(emb_jack, emb_data[i]['average_emb']))))]
+            jack_dist[i]['log_dist_average'] = np.log(jack_dist[i]['dist_average'])
+            jack_dist[i]['Z_value'] = (jack_dist[i]['log_dist_average'] - emb_data[i]['log_dist_mean'])/emb_data[i]['log_dist_std']
+            jack_dist[i]['Prob'] = 2*st.norm.cdf(-np.abs(jack_dist[i]['Z_value']))
+            print('Z value for {} is {}'.format(i, jack_dist[i]['Z_value']))
+            print('The face is {} likely {}'.format(jack_dist[i]['Prob'], i))
+            # print('Z value for {} is {}'.format(i, jack_dist[i]['Z_value']))
+            # print('The face is {} likely {}'.format(jack_dist[i]['Prob'], i))
+
+#
+#     # print('dist_average for {} is {}'.format(i, jack_dist[i]['dist_average']))
+#     # print('=============== DBSCAN ===============')
+#     # # DBSCAN is the only algorithm that doesn't require the number of clusters to be defined.
+#     # matrix = emb_data[i]['distance']
+#     # db = DBSCAN(eps=0.75, min_samples=1, metric='precomputed')
+#     # db.fit(matrix)
+#     # labels = db.labels_
+#     # no_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+#     # print('DBSACN: {} has {} of clusters:'.format(i, no_clusters))
 
 # attrib = ['emb', 'distance', 'average_emb']
 # people = ['ALL']
