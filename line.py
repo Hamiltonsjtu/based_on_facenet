@@ -66,7 +66,7 @@ def main(args):
                 np.sqrt(np.sum(np.square(np.subtract(emb_jack, emb_data[i]['average_emb']))))]
             jack_dist[i]['log_dist_average'] = np.log(jack_dist[i]['dist_average'])
             jack_dist[i]['Z_value'] = (jack_dist[i]['log_dist_average'] - emb_data[i]['log_dist_mean'])/emb_data[i]['log_dist_std']
-            jack_dist[i]['Prob'] = 2 * st.norm.cdf(-np.abs(jack_dist[i]['Z_value']))
+            jack_dist[i]['Prob'] = st.norm.cdf(-np.abs(jack_dist[i]['Z_value']))/st.norm.cdf(0)
             print('Z value for {} is {}'.format(i, jack_dist[i]['Z_value']))
             print('The face is {} likely {}'.format(jack_dist[i]['Prob'], i))
 
@@ -82,7 +82,7 @@ def load_emb(people, attrib):
         emb_data[i]['log_dist'] = np.log(emb_data[i]['dist_emb'])
         emb_data[i]['log_dist_mean'] = np.mean(emb_data[i]['log_dist'])
         emb_data[i]['log_dist_std'] = np.std(emb_data[i]['log_dist'])
-        print('distance shape is {}'.format(np.shape(emb_data[i]['distance'])))
+        print('distance shape for {} is {}'.format(i, np.shape(emb_data[i]['distance'])))
     return emb_data
 
 
