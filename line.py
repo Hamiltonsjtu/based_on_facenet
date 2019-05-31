@@ -14,11 +14,11 @@ from __future__ import division
 from __future__ import print_function
 
 import sys
-sys.path.append("src") # useful for the import of facenet in another folder
+sys.path.append("src")  # useful for the import of facenet in another folder
 
 import facenet
 import align.detect_face
-
+import dlib
 from scipy import misc
 import tensorflow as tf
 import numpy as np
@@ -28,6 +28,7 @@ import os
 import copy
 import argparse
 import scipy.stats as st
+import cv2
 
 
 def main(args):
@@ -65,10 +66,11 @@ def main(args):
             jack_dist[i]['dist_average'] = [
                 np.sqrt(np.sum(np.square(np.subtract(emb_jack, emb_data[i]['average_emb']))))]
             jack_dist[i]['log_dist_average'] = np.log(jack_dist[i]['dist_average'])
-            jack_dist[i]['Z_value'] = (jack_dist[i]['log_dist_average'] - emb_data[i]['log_dist_mean'])/emb_data[i]['log_dist_std']
-            jack_dist[i]['Prob'] = st.norm.cdf(-np.abs(jack_dist[i]['Z_value']))/st.norm.cdf(0)
-            print('Z value for {} is {}'.format(i, jack_dist[i]['Z_value']))
-            print('The face is {} likely {}'.format(jack_dist[i]['Prob'], i))
+            jack_dist[i]['Z_value'] = (jack_dist[i]['log_dist_average'] - emb_data[i]['log_dist_mean'])/(emb_data[i]['log_dist_std'])
+            jack_dist[i]['Prob'] = st.norm.pdf(jack_dist[i]['Z_value'])/st.norm.pdf(0)
+            # print('Prob is {}'.format(st.norm.pdf(jack_dist[i]['Z_value'])/st.norm.pdf(0)))
+            # print('Z value for {} is {}'.format(i, jack_dist[i]['Z_value']))
+            print('The face is {:.2%} likely {}'.format(jack_dist[i]['Prob'][0], i))
 
 
 def load_emb(people, attrib):
@@ -82,7 +84,7 @@ def load_emb(people, attrib):
         emb_data[i]['log_dist'] = np.log(emb_data[i]['dist_emb'])
         emb_data[i]['log_dist_mean'] = np.mean(emb_data[i]['log_dist'])
         emb_data[i]['log_dist_std'] = np.std(emb_data[i]['log_dist'])
-        print('distance shape for {} is {}'.format(i, np.shape(emb_data[i]['distance'])))
+        print('distance shape for [ {} ] is {}'.format(i, np.shape(emb_data[i]['distance'])))
     return emb_data
 
 
@@ -116,7 +118,11 @@ def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction,det
     for image in tmp_image_paths:
         img = misc.imread(os.path.expanduser(image), mode='RGB')
         img_size = np.asarray(img.shape)[0:2]
+        print(img.shape)
         bounding_boxes, _ = align.detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold, factor)
+        print('============== boundary boxes =====================')
+        print(bounding_boxes)
+
         nrof_faces = bounding_boxes.shape[0]
         print('This picture has {} faces'.format(nrof_faces))
         if nrof_faces > 0:
@@ -142,19 +148,22 @@ def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction,det
             for i, det in enumerate(det_arr):
                 det = np.squeeze(det)
                 bb = np.zeros(4, dtype=np.int32)
-                bb[0] = np.maximum(det[0] - margin / 2, 0)
-                bb[1] = np.maximum(det[1] - margin / 2, 0)
-                bb[2] = np.minimum(det[2] + margin / 2, img_size[1])
-                bb[3] = np.minimum(det[3] + margin / 2, img_size[0])
+                bb[0] = np.maximum(det[0] - margin / 2, 0)              # bottom
+                bb[1] = np.maximum(det[1] - margin / 2, 0)              # left
+                bb[2] = np.minimum(det[2] + margin / 2, img_size[1])    # top
+                bb[3] = np.minimum(det[3] + margin / 2, img_size[0])    # right
                 cropped = img[bb[1]:bb[3], bb[0]:bb[2], :]
                 scaled = misc.imresize(cropped, (image_size, image_size), interp='bilinear')
+                print('cropped image shape: {}'.format(np.shape(scaled)))
                 prewhitened = facenet.prewhiten(scaled)
                 img_list.append(prewhitened)
-
+                img_and_crop = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (0, 255, 0))
             images = np.stack(img_list)
-
+            image_tmp = cv2.cvtColor(img_and_crop, cv2.COLOR_BGR2RGB)
+            cv2.imshow('img_crp', image_tmp)
+            cv2.waitKey()
             print('length of img_list is {}'.format(np.shape(img_list)))
-            print('images shape is {}'.format(np.shape(images)))
+            print('append cropped images shape is {}'.format(np.shape(images)))
     return images
 
 

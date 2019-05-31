@@ -6,6 +6,8 @@ import tensorflow as tf
 import cv2
 from scipy import misc
 import os
+import dlib
+from skimage import io
 from sklearn.cluster import MeanShift, estimate_bandwidth
 from matplotlib import patches, lines
 import matplotlib.pyplot as plt
@@ -29,7 +31,7 @@ label_map = label_map_util.load_labelmap(PATH_TO_LABELS)
 categories = label_map_util.convert_label_map_to_categories(label_map, max_num_classes=NUM_CLASSES, use_display_name=True)
 category_index = label_map_util.create_category_index(categories)
 
-img_path = '../xi_2017.jpg'
+img_path = '../xi_many.jpg'
 image_tmp = misc.imread(os.path.expanduser(img_path), mode='RGB')
 image = cv2.cvtColor(image_tmp, cv2.COLOR_BGR2RGB)
 
@@ -87,12 +89,11 @@ with detection_graph.as_default():
         scores = np.squeeze(scores)
         face_indice_tmp = np.where(scores > 0.2)
         face_indice = face_indice_tmp[0]
-        print('type of face_indice {} and shape {}'.format(type(face_indice), np.shape(face_indice)))
-        print(len(face_indice))
-        print(face_indice)
+        # print('type of face_indice {} and shape {}'.format(type(face_indice), np.shape(face_indice)))
+        # print(len(face_indice))
+        # print(face_indice)
 
         im_height, im_width = np.shape(image)[0:2]
-
         for i in face_indice:
             # print('the {}-th face'.format(i))
             # print('{} box: {} and score {}'.format(i, boxes[i,:], scores[i]))
