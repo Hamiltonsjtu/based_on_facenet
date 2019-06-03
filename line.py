@@ -35,10 +35,11 @@ def main(args):
 
     #### load emb data
     people = ['xijinping', 'hujintao', 'jiangzemin', 'dengxiaoping', 'wenjiabao', 'maozedong', 'zhouenlai']
-    attrib = ['emb', 'distance', 'average_emb']
-    emb_data = load_emb(people, attrib)
+    # attrib = ['emb', 'distance', 'average_emb']
+    # emb_data = load_emb(people, attrib)
+    # np.save('people_embs.npy', emb_data)
     ####
-
+    emb_data = np.load('people_embs.npy').item()
     images = load_and_align_data(args.image_files, args.image_size, args.margin, args.gpu_memory_fraction, args.detect_multiple_faces)
     with tf.Graph().as_default():
         with tf.Session() as sess:
