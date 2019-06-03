@@ -1,6 +1,5 @@
-
 import sys
-sys.path.append('SSD_face_detection')
+
 import time
 import numpy as np
 import tensorflow as tf
@@ -13,6 +12,7 @@ from sklearn.cluster import MeanShift, estimate_bandwidth
 from matplotlib import patches, lines
 import matplotlib.pyplot as plt
 
+# sys.path.append('SSD_face_detection')
 from SSD_face_detection.utils import label_map_util
 from SSD_face_detection.utils import visualization_utils_color as vis_util
 
@@ -90,25 +90,27 @@ def ssd_find_face(img_path):
             # print(face_indice)
 
             im_height, im_width = np.shape(image)[0:2]
+            boxes_tmp = boxes[face_indice,:]
+            for i in face_indice:
+                # print('the {}-th face'.format(i))
+                # print('{} box: {} and score {}'.format(i, boxes[i,:], scores[i]))
+                box = boxes[i, :]
+                ymin = box[0]
+                xmin = box[1]
+                ymax = box[2]
+                xmax = box[3]
+                bb = np.zeros(4, dtype=np.int32)
+                bb[0] = xmin * im_width   # left
+                bb[1] = xmax * im_width   # right
+                bb[2] = ymin * im_height  # bottom
+                bb[3] = ymax * im_height  # top
 
-            return boxes, scores, face_indice, im_height, im_width, image
-
-            # for i in face_indice:
-            #     # print('the {}-th face'.format(i))
-            #     # print('{} box: {} and score {}'.format(i, boxes[i,:], scores[i]))
-            #     box = boxes[i, :]
-            #     ymin = box[0]
-            #     xmin = box[1]
-            #     ymax = box[2]
-            #     xmax = box[3]
-            #     bb = np.zeros(4, dtype=np.int32)
-            #     bb[0] = xmin * im_width   # left
-            #     bb[1] = xmax * im_width   # right
-            #     bb[2] = ymin * im_height  # bottom
-            #     bb[3] = ymax * im_height  # top
-            #     img_crop = cv2.rectangle(image, (bb[0], bb[2]), (bb[1], bb[3]), (0,255,0))
+                boxes_tmp[i,:] = bb
+                # img_crop = cv2.rectangle(image, (bb[0], bb[2]), (bb[1], bb[3]), (0,255,0))
             #     cv2.imshow('img_crp', img_crop)
             # cv2.waitKey()
+            boxes = boxes_tmp
+            return boxes, scores, face_indice, im_height, im_width, image
 
 
 

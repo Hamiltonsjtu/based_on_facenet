@@ -4,10 +4,12 @@ from __future__ import print_function
 
 import sys
 sys.path.append("src")                  # FACENET
-sys.path.append('SSD_face_detection')   # SSD
-from SSD_face_detection.SSD_detect_face import ssd_find_face as SSD
 import facenet
 import align.detect_face
+
+sys.path.append('SSD_face_detection')   # SSD
+from SSD_face_detection.SSD_detect_face import ssd_find_face as SSD
+
 import dlib
 from scipy import misc
 import tensorflow as tf
@@ -27,39 +29,38 @@ img_path = 'xi_tram_ce.jpg'  #args.image_path
 
 ##### =======  detect face for image  ====== #######
 boxes, scores, face_indice, im_height, im_width, image = SSD(img_path)
-# image = cv2.cvtColor(image_tmp, cv2.COLOR_BGR2RGB)
 det_arry = boxes[face_indice, :]
 scores_arr = scores[face_indice]
-# print('face index {}'.format(face_indice))
-# print('shape of image {}'.format([im_height, im_width]))
-# print('det_arry: {}'.format(det_arry))
-# print('scores: {}'.format(scores_arr))
-
+print('type of boxes: {} and its value: {}'.format(type(boxes), boxes))
+#  openCV SHOW IMAGE AND CROPPED AREA
+# for i in face_indice:
+#     # print('the {}-th face'.format(i))
+#     # print('{} box: {} and score {}'.format(i, boxes[i,:], scores[i]))
+#     box = boxes[i, :]
+#     img_crop = cv2.rectangle(image, (box[0], box[2]), (box[1], box[3]), (0,255,0))
+#     cv2.imshow('img_crp', img_crop)
+# cv2.waitKey()
 
 ##### =======  landmark and project for faces  ====== #######
 predictor_model = "dlib/shape_predictor_68_face_landmarks.dat"
 face_pose_predictor = dlib.shape_predictor(predictor_model)
 face_aligner = open_Face.AlignDlib(predictor_model)
 
-# win = dlib.image_window()
-# win.set_image(image)
-
+win = dlib.image_window()
+win.set_image(image)
 for i in face_indice:
     box = boxes[i, :]
-    xmin = box[1]
-    xmax = box[0]
-    ymin = box[3]
-    ymax = box[2]
+    xmin = box[0]
+    xmax = box[1]
+    ymin = box[2]
+    ymax = box[3]
 
-    print('xmin {}, ymin {}, xmax {}, ymax {}'.format(xmin, ymin, xmax, ymax))
-    # img_crop = cv2.rectangle(image, (xmin, ymin), (xmax, ymax), (255, 0, 0))
-#     cv2.imshow('img_crp', img_crop)
-# cv2.waitKey()
+    print('the {}# face: xmin {}, ymin {}, xmax {}, ymax {}'.format(i, xmin, ymin, xmax, ymax))
 
-    det_arry_dlib = dlib.rectangle(xmin, ymin, xmax, ymax)
-    print(det_arry_dlib)
+    det_arry_dlib = dlib.rectangle(left = int(xmin), top = int(ymin), right = int(xmax), bottom = int(ymax))
+    print('type of det_arr_dlib: {} and value: {}'.format(type(det_arry_dlib),det_arry_dlib))
     # Draw a box around each face we found
-    # win.add_overlay(det_arry_dlib)
+    win.add_overlay(det_arry_dlib)
     # Get the the face's pose
     pose_landmarks = face_pose_predictor(image, det_arry_dlib)
     # print('=========================')
@@ -67,10 +68,10 @@ for i in face_indice:
     # Use openface to calculate and perform the face alignment
 
     alignedFace = face_aligner.align(534, image, det_arry_dlib, landmarkIndices=open_Face.AlignDlib.OUTER_EYES_AND_NOSE)
-    # cv2.imwrite("aligned_face_jack{}.jpg".format(i), alignedFace)
+    cv2.imwrite("aligned_face_jack{}.jpg".format(i), alignedFace)
 
-    # win.add_overlay(pose_landmarks)
-# dlib.hit_enter_to_continue()
+    win.add_overlay(pose_landmarks)
+dlib.hit_enter_to_continue()
 
 
 # for i in face_indice:
