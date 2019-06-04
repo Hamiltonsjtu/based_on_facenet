@@ -41,9 +41,6 @@ def main(args):
                     os.rename(src_, dst_)
 
 
-
-
-
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('data_dir', type=str,
