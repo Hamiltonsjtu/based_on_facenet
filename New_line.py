@@ -26,21 +26,55 @@ import open_Face
 # def main(args):
 img_path = 'xi_hu.jpg'  #args.image_path
 print(os.path.splitext(img_path))
-##### =======  detect face for image  ====== #######
-boxes, scores, face_indice, im_height, im_width, image = SSD(img_path)
-det_arry = boxes[face_indice, :]
-scores_arr = scores[face_indice]
+
+
+
+# ################## =======  detect face by SSD   ====== ###################s
+# start_time = time.time()
+# boxes, scores, face_indice, im_height, im_width, image = SSD(img_path)
+# det_arry = boxes[face_indice, :]
+# scores_arr = scores[face_indice]
+# print('type of boxes: {} and its value: {}'.format(type(boxes), boxes))
+# print('SSD detect face cost {}s'.format(time.time()-start_time))
+
+################## =======  detect face by MTRCNN  ====== ###################
+minsize = 20  # minimum size of face
+threshold = [0.6, 0.7, 0.7]  # three steps's threshold
+factor = 0.709  # scale factor
+print('Creating MTRCNN networks and loading parameters')
+start_time = time.time()
+with tf.Graph().as_default():
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=1.0)
+    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=False))
+    with sess.as_default():
+        pnet, rnet, onet = align.detect_face.create_mtcnn(sess, None)
+
+image = misc.imread(img_path, mode='RGB')
+# image = cv2.cvtColor(image_tmp, cv2.COLOR_BGR2RGB)
+img_size = np.asarray(image.shape)[0:2]
+boxes, _ = align.detect_face.detect_face(image, minsize, pnet, rnet, onet, threshold, factor)
+face_indice = np.arange(np.shape(boxes)[0])
+print('type of boxes: {} and its value: {}'.format(type(boxes), boxes))
+print('MTRCNN detect face cost {}s'.format(time.time()-start_time))
+boxes_ = np.zeros_like(boxes[:,0:-1], dtype='int')
+boxes_[:,0] = boxes[:,2]
+boxes_[:,1] = boxes[:,0]
+boxes_[:,2] = boxes[:,1]
+boxes_[:,3] = boxes[:,3]
+scores = boxes[:,-1]
+boxes = boxes_
 print('type of boxes: {} and its value: {}'.format(type(boxes), boxes))
 
-
-#####  openCV SHOW IMAGE AND CROPPED AREA
-for i in face_indice:
-    # print('the {}-th face'.format(i))
-    # print('{} box: {} and score {}'.format(i, boxes[i,:], scores[i]))
-    box = boxes[i, :]
-    img_crop = cv2.rectangle(image, (box[0], box[2]), (box[1], box[3]), (0,255,0))
-    cv2.imshow('img_crp', img_crop)
-cv2.waitKey()
+##############################################################################
+# #####  openCV SHOW IMAGE AND CROPPED AREA
+# for i in face_indice:
+#     # print('the {}-th face'.format(i))
+#     print('{}# box: {} its type {} and score {}'.format(i, boxes[i,:], type(boxes[i,0]), scores[i]))
+#     box = boxes[i, :]
+#     print('box {} and its type {}'.format(box, type(box)))
+#     img_crop = cv2.rectangle(image, (box[0], box[2]), (box[1], box[3]), (0,255,0))
+#     cv2.imshow('img_crp', img_crop)
+# cv2.waitKey()
 
 ##### =======  landmark and project for faces  ====== #######
 predictor_model = "dlib/shape_predictor_68_face_landmarks.dat"
@@ -49,6 +83,7 @@ face_aligner = open_Face.AlignDlib(predictor_model)
 
 win = dlib.image_window()
 win.set_image(image)
+
 for i in face_indice:
     box = boxes[i, :]
     xmin = box[0]
@@ -67,7 +102,6 @@ for i in face_indice:
     # print('=========================')
     # print(pose_landmarks)
     # Use openface to calculate and perform the face alignment
-
     alignedFace = face_aligner.align(534, image, det_arry_dlib, landmarkIndices=open_Face.AlignDlib.OUTER_EYES_AND_NOSE)
     cv2.imwrite("xi_hu{}.jpg".format(i), alignedFace)
 
