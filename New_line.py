@@ -24,22 +24,23 @@ import cv2
 import open_Face
 
 # def main(args):
-img_path = 'xi_tram_ce.jpg'  #args.image_path
-
-
+img_path = 'xi_hu.jpg'  #args.image_path
+print(os.path.splitext(img_path))
 ##### =======  detect face for image  ====== #######
 boxes, scores, face_indice, im_height, im_width, image = SSD(img_path)
 det_arry = boxes[face_indice, :]
 scores_arr = scores[face_indice]
 print('type of boxes: {} and its value: {}'.format(type(boxes), boxes))
-#  openCV SHOW IMAGE AND CROPPED AREA
-# for i in face_indice:
-#     # print('the {}-th face'.format(i))
-#     # print('{} box: {} and score {}'.format(i, boxes[i,:], scores[i]))
-#     box = boxes[i, :]
-#     img_crop = cv2.rectangle(image, (box[0], box[2]), (box[1], box[3]), (0,255,0))
-#     cv2.imshow('img_crp', img_crop)
-# cv2.waitKey()
+
+
+#####  openCV SHOW IMAGE AND CROPPED AREA
+for i in face_indice:
+    # print('the {}-th face'.format(i))
+    # print('{} box: {} and score {}'.format(i, boxes[i,:], scores[i]))
+    box = boxes[i, :]
+    img_crop = cv2.rectangle(image, (box[0], box[2]), (box[1], box[3]), (0,255,0))
+    cv2.imshow('img_crp', img_crop)
+cv2.waitKey()
 
 ##### =======  landmark and project for faces  ====== #######
 predictor_model = "dlib/shape_predictor_68_face_landmarks.dat"
@@ -68,7 +69,7 @@ for i in face_indice:
     # Use openface to calculate and perform the face alignment
 
     alignedFace = face_aligner.align(534, image, det_arry_dlib, landmarkIndices=open_Face.AlignDlib.OUTER_EYES_AND_NOSE)
-    cv2.imwrite("aligned_face_jack{}.jpg".format(i), alignedFace)
+    cv2.imwrite("xi_hu{}.jpg".format(i), alignedFace)
 
     win.add_overlay(pose_landmarks)
 dlib.hit_enter_to_continue()

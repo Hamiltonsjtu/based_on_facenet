@@ -32,7 +32,6 @@ import cv2
 
 
 def main(args):
-
     #### load emb data
     people = ['xijinping', 'hujintao', 'jiangzemin', 'dengxiaoping', 'wenjiabao', 'maozedong', 'zhouenlai']
     # attrib = ['emb', 'distance', 'average_emb']
@@ -160,11 +159,11 @@ def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction,det
                 img_list.append(prewhitened)
                 img_and_crop = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (0, 255, 0))
             images = np.stack(img_list)
-            image_tmp = cv2.cvtColor(img_and_crop, cv2.COLOR_BGR2RGB)
-            cv2.imshow('img_crp', image_tmp)
-            cv2.waitKey()
-            print('length of img_list is {}'.format(np.shape(img_list)))
-            print('append cropped images shape is {}'.format(np.shape(images)))
+            # image_tmp = cv2.cvtColor(img_and_crop, cv2.COLOR_BGR2RGB)
+            # cv2.imshow('img_crp', image_tmp)
+            # cv2.waitKey()
+            # print('length of img_list is {}'.format(np.shape(img_list)))
+            # print('append cropped images shape is {}'.format(np.shape(images)))
     return images
 
 

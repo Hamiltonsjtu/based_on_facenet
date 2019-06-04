@@ -32,18 +32,6 @@ def ssd_find_face(img_path):
     # img_path = 'xi_many.jpg'
     image_tmp = misc.imread(os.path.expanduser(img_path), mode='RGB')
     image = cv2.cvtColor(image_tmp, cv2.COLOR_BGR2RGB)
-    # def random_colors(N, bright=True):
-    #     """
-    #     Generate random colors.
-    #     To get visually distinct colors, generate them in HSV space then
-    #     convert to RGB.
-    #     """
-    #     brightness = 1.0 if bright else 0.7
-    #     hsv = [(i / N, 1, brightness) for i in range(N)]
-    #     colors = list(map(lambda c: colorsys.hsv_to_rgb(*c), hsv))
-    #     random.shuffle(colors)
-    #     return colors
-
 
     detection_graph = tf.Graph()
     with detection_graph.as_default():
