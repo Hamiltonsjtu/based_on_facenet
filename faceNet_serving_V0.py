@@ -15,7 +15,6 @@ import shutil
 
 import sys
 sys.path.append("src")  # useful for the import of facenet in another folder
-
 import facenet
 import align.detect_face
 import dlib
@@ -31,21 +30,61 @@ import cv2
 import scipy.stats as st
 
 
-
 ###  function to communicate with tensorflow_serving with help of grpc
 def img_to_emb_feature(img, channel):
+    print(img.shape)
     channel = grpc.insecure_channel(channel)
     stub = prediction_service_pb2_grpc.PredictionServiceStub(channel)
     request = predict_pb2.PredictRequest()
-    request.model_spec.name = 'facenet_model'
-    request.model_spec.signature_name = tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY # 加了个tf.saved_model
-    request.inputs['inputs'].CopyFrom(
-      tf.contrib.util.make_tensor_proto(img, shape=[1,img.shape[0],img.shape[1],img.shape[2]]))
-    result = stub.Predict(request, 10.0)  # 10 secs timeout
-    emb_tmp = np.array(result.outputs['embeddings:0'].float_val)
-    emb = np.squeeze(emb_tmp)
-    return emb
 
+    request.model_spec.name = 'facenet'
+    request.model_spec.signature_name = 'calculate_embeddings'
+    request.inputs['images'].CopyFrom(
+        tf.contrib.util.make_tensor_proto(img, dtype=tf.float32))
+    request.inputs['phase'].CopyFrom(tf.contrib.util.make_tensor_proto(False))
+    result_tmp = stub.Predict(request, 10.0)  # 10 secs timeout
+    result = result_tmp.outputs['embeddings'].float_val
+    # request.model_spec.name = 'facenet'
+    # request.model_spec.signature_name = tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY
+    # request.inputs['input'].CopyFrom(
+    #     tf.contrib.util.make_tensor_proto(img, shape=[1, img.shape[1], img.shape[2], img.shape[3]]))
+    # result = stub.Predict(request, 10.0)  # 10 secs timeout
+    # print("result: ", result)
+
+    # boxes = np.array(result.outputs['embeddings'].float_val).reshape(
+    #     result.outputs['detection_boxes'].tensor_shape.dim[0].size,
+    #     result.outputs['detection_boxes'].tensor_shape.dim[1].size,
+    #     result.outputs['detection_boxes'].tensor_shape.dim[2].size
+    # )
+    #
+    # scores = np.array(result.outputs['detection_scores'].float_val)
+    # detection_classes = np.array(result.outputs['detection_classes'].float_val)
+    #
+    # # num_detections = np.array(result.outputs['num_detections'].float_val)
+    # boxes = np.squeeze(boxes)
+    # scores = np.squeeze(scores)
+    # height, width = img.shape[:2]
+    #
+    # pts_box = []
+    # pts = None
+    # door_img = None
+    # scores_max = 0
+    # detection_class = None
+    # for i in range(boxes.shape[0]):
+    #     if (scores[i] > 0.5) and (scores[i] > scores_max):
+    #         scores_max = scores[i]
+    #         ymin, xmin, ymax, xmax = boxes[i]
+    #         ymin = int(ymin * height)
+    #         ymax = int(ymax * height)
+    #         xmin = int(xmin * width)
+    #         xmax = int(xmax * width)
+    #
+    #         pts = np.array([xmin, ymin, xmax, ymax])
+    #
+    #         detection_class = detection_classes[i]
+    #
+    # # channel.close()
+    return result
 
 ###  load image and detect faces in it, return faces
 def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction,detect_multiple_faces):
@@ -58,9 +97,15 @@ def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction,det
         sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=False))
         with sess.as_default():
             pnet, rnet, onet = align.detect_face.create_mtcnn(sess, None)
-    tmp_image_paths = copy.copy(image_paths)
+    if os.path.isdir(image_paths):
+        tmp_image_paths = os.listdir(image_paths)
+    else:
+        tmp_image_paths = [image_paths]
+
     img_list = []
+
     for image in tmp_image_paths:
+
         img = misc.imread(os.path.expanduser(image), mode='RGB')
         img_size = np.asarray(img.shape)[0:2]
         print(img.shape)
@@ -112,23 +157,25 @@ def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction,det
     return images
 
 ###  load input image
-image_path = "/Documents/Hamilton/xi.jpg"
+image_path = './hu.jpg'
 image_size = 160
 margin = 44
 gpu_memory_fraction = 1.0
 detect_multiple_faces = True
+
+print(image_path)
 images = load_and_align_data(image_path, image_size, margin, gpu_memory_fraction,
                              detect_multiple_faces)
 
 
 ###  sent cropped face to faceNet model which is disployed by tensorflow_serving
-emb = img_to_emb_feature(images, "192.168.1.254:9090")
-
-
+emb = [img_to_emb_feature(images, "192.168.1.254:9001")]
+num_face = int(np.shape(emb)[1]/128)
+emb = np.asarray(emb).reshape((num_face, 128))
+# print('embedding vector: ',  emb)
 ###  load embedding features of critical peoples
 people = ['xijinping', 'hujintao', 'jiangzemin', 'dengxiaoping', 'wenjiabao', 'maozedong', 'zhouenlai']
-people_embs_path = '/Documents/Hamilton/'
-emb_data = np.load(people_embs_path + 'people_embs.npy').item()
+emb_data = np.load('people_embs.npy').item()
 
 
 def multi(*args):
@@ -145,11 +192,13 @@ def multi(*args):
     else:
         return args[0]
 
-n = np.shape(emb)[0]
 
-for l in range(n):
+print('type of emb {} and its shape: {}'.format(type(emb), np.shape(emb)))
+
+for l in range(np.shape(emb)[0]):
     print('======== START CALCULATE THE {}-th face DISTANCE ========'.format(l))
     emb_jack = emb[l, :]
+    print('emb_face shape', np.shape(emb_jack))
     jack_dist = multi(people, ['dist_all', 'dist_average', 'dist_all_average'], {})
     for i in people:
         jack_dist[i]['dist_average'] = [
