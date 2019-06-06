@@ -48,63 +48,64 @@ def upload():
         img = cv.imdecode(buf, cv.IMREAD_COLOR)
         faces = load_and_align_data(img)
         if faces is None:
-            print('face none')
-            pass
-        # print(faces.shape)
-        emb = faceNet_serving_V0.img_to_emb_feature(faces, FACENET_CHANNEL)
-        emb = list(emb)
-        # print(len(emb))
-        # print('shape of emb {} and ite type {}'.format(np.shape(emb), type(emb)))
-        num_face = int(len(emb)/128)
-        ret = {}
-        maximum = []
-        maximum_name = ['test']
-        for i in range(num_face):
-            emb_face = emb[i*128:(1+i)*128]
-            likely = cal_sim(emb_face)
-            ret[str(i)] = likely
-            # print('=====================')
-            maximum_name.append(max(likely, key=likely.get))
+            print('No Faces in this image!')
+            ret = {
+                "file": f.filename,
+                "code": 200,
+                "message": "Has no faces in image, IMAGES PASS!",
+                "result": "合规"
 
-            maximum.append(likely[max(likely, key=likely.get)])
-            # print('maximum {} and type {} '.format(maximum, type(maximum)))
-            # print('maximum_name {} and type {} '.format(maximum_name, type(maximum_name)))
-            #
-            # print('maximum {} and type {} '.format(max(maximum), type(max(maximum))))
-            th = 0.10
+            }
+        else:
+            # print(faces.shape)
+            emb = faceNet_serving_V0.img_to_emb_feature(faces, FACENET_CHANNEL)
+            emb = list(emb)
+            # print(len(emb))
+            # print('shape of emb {} and ite type {}'.format(np.shape(emb), type(emb)))
+            num_face = int(len(emb)/128)
+            ret = {}
+            maximum = []
+            maximum_name = ['test']
+            for i in range(num_face):
+                emb_face = emb[i*128:(1+i)*128]
+                likely = cal_sim(emb_face)
+                ret[str(i)] = likely
+                # print('=====================')
+                maximum_name.append(max(likely, key=likely.get))
 
-            if max(maximum) < th:
-                ret = {
-                    "file": f.filename,
-                    "code": 300,
-                    "message": "IMAGES PASS!",
-                    "result": {
-                        "conclusion": "合规"
-                    }
-                }
+                maximum.append(likely[max(likely, key=likely.get)])
+                # print('maximum {} and type {} '.format(maximum, type(maximum)))
+                # print('maximum_name {} and type {} '.format(maximum_name, type(maximum_name)))
+                # print('maximum {} and type {} '.format(max(maximum), type(max(maximum))))
+                th = 0.10
 
-            else:
-                index = list(np.where(np.array(maximum) > th)[0])
-                data = []
-                for ii in index:
-                    data.append(
-                        {
-                            "face_id": str(ii),
-                            "user_name": maximum_name[ii+1],
-                            "score": maximum[ii]
-                        })
-                ret = {
+                if max(maximum) < th:
+                    ret = {
                         "file": f.filename,
-                        "code": 301,
-                        "message": "敏感人物",
-                        "result": "不合规",
-                        "data": data
+                        "code": 300,
+                        "message": "Has faces, IMAGES PASS!",
+                        "result":  "合规"
 
                     }
 
+                else:
+                    index = list(np.where(np.array(maximum) > th)[0])
+                    data = []
+                    for ii in index:
+                        data.append(
+                            {
+                                "face_id": str(ii),
+                                "user_name": maximum_name[ii+1],
+                                "score": maximum[ii]
+                            })
+                    ret = {
+                            "file": f.filename,
+                            "code": 301,
+                            "message": "敏感人物",
+                            "result": "不合规",
+                            "data": data
 
-
-
+                        }
 
     return json.dumps(ret)
 

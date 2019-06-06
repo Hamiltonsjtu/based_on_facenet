@@ -6,6 +6,7 @@ import sys
 LOG_PATH = 'logs'
 LOG_FILE = 'error.log'
 
+
 def get_logger(name):
     logger = logging.getLogger(name)
     if os.path.exists(LOG_PATH):

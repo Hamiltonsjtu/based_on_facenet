@@ -1,8 +1,7 @@
 import requests
 import json
-import numpy as np
 # #######-------------image client------------#######
-files_ = {"file": open("e:/shuai/Face/fengjing.jpg" ,"rb")}
+files_ = {"file": open("e:/shuai/Face/xi_hu.jpg" ,"rb")}
 r = requests.post("http://127.0.0.1:5000/upload", files=files_)
 # print(r.text)
 # print(type(r))
