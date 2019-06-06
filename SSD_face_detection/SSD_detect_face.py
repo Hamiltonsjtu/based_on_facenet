@@ -30,9 +30,8 @@ category_index = label_map_util.create_category_index(categories)
 
 def ssd_find_face(img_path):
     # img_path = 'xi_many.jpg'
-    image_tmp = misc.imread(os.path.expanduser(img_path), mode='RGB')
-    image = cv2.cvtColor(image_tmp, cv2.COLOR_BGR2RGB)
-
+    image = misc.imread(os.path.expanduser(img_path), mode='RGB')
+    print('image shape {}'.format(np.shape(image)))
     detection_graph = tf.Graph()
     with detection_graph.as_default():
         od_graph_def = tf.GraphDef()
