@@ -58,58 +58,56 @@ def upload():
         num_face = int(len(emb)/128)
         ret = {}
         maximum = []
+        maximum_name = ['test']
         for i in range(num_face):
             emb_face = emb[i*128:(1+i)*128]
             likely = cal_sim(emb_face)
             ret[str(i)] = likely
-            print('=====================')
-            maximum_name = max(likely, key=likely.get)  # Just use 'min' instead of 'max' for minimum.
-            print(maximum_name)
-            print(likely[maximum_name])
-            maximum.append(likely[maximum_name])
+            # print('=====================')
+            maximum_name.append(max(likely, key=likely.get))
 
-        print('maximum {} and type {} '.format(max(maximum), type(max(maximum))))
+            maximum.append(likely[max(likely, key=likely.get)])
+            print('maximum {} and type {} '.format(maximum, type(maximum)))
+            print('maximum_name {} and type {} '.format(maximum_name, type(maximum_name)))
 
-        th = 0.10
+            print('maximum {} and type {} '.format(max(maximum), type(max(maximum))))
 
-        if max(maximum) < th:
-            json.dumps(
-                {
-                    "file": f.filename,
-                    "code": 300,
-                    "message": "IMAGES PASS!",
-                    "result":{
-                                "conclusion": "合规"
-                            }
-                }
-            )
-        else:
-            print(np.array(maximum))
-            print(type(np.array(maximum)))
-            index = np.where(np.array(maximum) > th)
-            print('index {} and type {} '.format(index, type(index)))
-            scores = maximum[index]
-            names = maximum_name[index]
-            print('index {} name {} score {}'.format(index, names, scores))
-            data = []
-            for ii in index:
-                data.append(
+            th = 0.10
+            if max(maximum) < th:
+                json.dumps(
                     {
-                        "face_id": str(ii),
-                        "user_name": names[ii],
-                        "score": scores[ii]
-                    })
+                        "file": f.filename,
+                        "code": 300,
+                        "message": "IMAGES PASS!",
+                        "result":{
+                                    "conclusion": "合规"
+                                }
+                    }
+                )
+            else:
+                print(np.array(maximum))
+                print(maximum_name)
+                index = list(np.where(np.array(maximum) > th)[0])
+                print('index {} and type {} '.format(index, type(index)))
+                data = []
+                for ii in index:
+                    data.append(
+                        {
+                            "face_id": str(ii),
+                            "user_name": maximum_name[ii+1],
+                            "score": maximum[ii]
+                        })
 
-            json.dumps(
-                {
-                    "file": f.filename,
-                    "code": 301,
-                    "message": "敏感人物",
-                    "result": "不合规",
-                    "data": data
+                json.dumps(
+                    {
+                        "file": f.filename,
+                        "code": 301,
+                        "message": "敏感人物",
+                        "result": "不合规",
+                        "data": data
 
-                }
-            )
+                    }
+                )
 
 
 
