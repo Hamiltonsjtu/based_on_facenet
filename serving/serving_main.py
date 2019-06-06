@@ -23,9 +23,7 @@ import operator
 import grpc
 
 
-
 app = Flask(__name__)
-# app.config['UPLOAD_FOLDER'] = '/home/myue/flash_test/pic'
 app.config['ALLOWED_EXTENSIONS'] = set(['png', 'jpg', 'jpeg'])
 
 logger = logging_flask.get_logger(__name__)
@@ -35,9 +33,11 @@ tf.app.flags.DEFINE_string('facenet', '192.168.1.254:9001', 'PredictionService h
 FACENET_CHANNEL = grpc.insecure_channel(FLAGS.facenet)
 DATA = np.load('people_embs.npy').item()
 
+
 @app.route('/')
 def hello_world():
     return 'hello world'
+
 
 @app.route('/upload', methods=['POST', 'GET'])
 def upload():
@@ -50,7 +50,7 @@ def upload():
         if faces is None:
             print('face none')
             pass
-        print(faces.shape)
+        # print(faces.shape)
         emb = faceNet_serving_V0.img_to_emb_feature(faces, FACENET_CHANNEL)
         emb = list(emb)
         # print(len(emb))
@@ -67,28 +67,24 @@ def upload():
             maximum_name.append(max(likely, key=likely.get))
 
             maximum.append(likely[max(likely, key=likely.get)])
-            print('maximum {} and type {} '.format(maximum, type(maximum)))
-            print('maximum_name {} and type {} '.format(maximum_name, type(maximum_name)))
-
-            print('maximum {} and type {} '.format(max(maximum), type(max(maximum))))
-
+            # print('maximum {} and type {} '.format(maximum, type(maximum)))
+            # print('maximum_name {} and type {} '.format(maximum_name, type(maximum_name)))
+            #
+            # print('maximum {} and type {} '.format(max(maximum), type(max(maximum))))
             th = 0.10
+
             if max(maximum) < th:
-                json.dumps(
-                    {
-                        "file": f.filename,
-                        "code": 300,
-                        "message": "IMAGES PASS!",
-                        "result":{
-                                    "conclusion": "合规"
-                                }
+                ret = {
+                    "file": f.filename,
+                    "code": 300,
+                    "message": "IMAGES PASS!",
+                    "result": {
+                        "conclusion": "合规"
                     }
-                )
+                }
+
             else:
-                print(np.array(maximum))
-                print(maximum_name)
                 index = list(np.where(np.array(maximum) > th)[0])
-                print('index {} and type {} '.format(index, type(index)))
                 data = []
                 for ii in index:
                     data.append(
@@ -97,9 +93,7 @@ def upload():
                             "user_name": maximum_name[ii+1],
                             "score": maximum[ii]
                         })
-
-                json.dumps(
-                    {
+                ret = {
                         "file": f.filename,
                         "code": 301,
                         "message": "敏感人物",
@@ -107,7 +101,7 @@ def upload():
                         "data": data
 
                     }
-                )
+
 
 
 
