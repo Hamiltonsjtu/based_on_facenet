@@ -34,6 +34,7 @@ import os
 import copy
 import argparse
 import time
+import math
 
 sys.path.append("src") # useful for the import of facenet in another folder
 import facenet
@@ -73,13 +74,23 @@ def main(args):
             print('Distance matrix')
             print('    ', end='')
             for i in range(nrof_images):
-                print('    %1d     ' % i, end='')
+                print('        %1d         ' % i, end='')
             print('')
             for i in range(nrof_images):
                 print('%1d  ' % i, end='')
                 for j in range(nrof_images):
-                    dist = np.sqrt(np.sum(np.square(np.subtract(emb[i,:], emb[j,:]))))
-                    print('  %1.4f  ' % dist, end='')
+                    # norm_i = np.linalg.norm(emb[i,:])
+                    # norm_j = np.linalg.norm(emb[j, :])
+
+                    norm_i_l2 = np.sqrt(np.sum([pow(emb[i,kk],2) for kk in range(len(emb[i,:]))]))
+                    norm_j_l2 = np.sqrt(np.sum([pow(emb[j,kk],2) for kk in range(len(emb[j,:]))]))
+                    emb_i_norm = emb[i,:]/norm_i_l2
+                    emb_j_norm = emb[j,:]/norm_j_l2
+                    dot_ij = np.sum([emb_i_norm[kk]*emb_j_norm[kk] for kk in range(len(emb_j_norm))])
+                    sim = dot_ij
+                    dist_cos = np.arccos(sim)/math.pi
+                    dist = np.sqrt(np.sum(np.square(np.subtract(emb_i_norm, emb_j_norm))))
+                    print('  {:1.4f}-{:1.4f}  '.format(dist, dist_cos), end='')
                 print('')
             
             
