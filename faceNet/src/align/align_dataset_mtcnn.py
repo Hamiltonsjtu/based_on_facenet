@@ -32,7 +32,8 @@ import os
 import argparse
 import tensorflow as tf
 import numpy as np
-
+import cv2
+from skimage import transform as trans
 sys.path.append("../") # useful for the import of facenet in another folder
 
 import facenet
@@ -98,17 +99,34 @@ def main(args):
                         if img.ndim == 2:
                             img = facenet.to_rgb(img)
                         img = img[:,:,0:3]
-    
-                        bounding_boxes, _ = align.detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold, factor)
-                        nrof_faces = bounding_boxes.shape[0]
+
+                        ####  alignment faces
+                        bounding_boxes, points = align.detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold, factor)
+                        nrof_faces = points.shape[1]
+
                         if nrof_faces>0:
-                            det = bounding_boxes[:,0:4]
+                            det = bounding_boxes[:, 0:4]
                             det_arr = []
+                            _landmark = None
                             img_size = np.asarray(img.shape)[0:2]
+
                             if nrof_faces>1:
+
                                 if args.detect_multiple_faces:
                                     for i in range(nrof_faces):
-                                        det_arr.append(np.squeeze(det[i]))
+                                        _landmark = points[:, i].reshape((2, 5)).T
+
+                                        warp0 = alignment(img, _landmark, img_size)
+                                        #### crop aligned images
+                                        bounding_boxes_new, _ = align.detect_face.detect_face(warp0, minsize, pnet,
+                                                                                              rnet, onet,
+                                                                                              threshold, factor)
+                                        det = bounding_boxes_new[0, 0:4]
+                                        nrof_successfully_aligned = crop_face(i, det, args.margin, img_size, warp0,
+                                                                              args.image_size,
+                                                                              nrof_successfully_aligned,
+                                                                              args.detect_multiple_faces, output_filename, text_file)
+
                                 else:
                                     bounding_box_size = (det[:,2]-det[:,0])*(det[:,3]-det[:,1])
                                     img_center = img_size / 2
@@ -116,46 +134,87 @@ def main(args):
                                     offset_dist_squared = np.sum(np.power(offsets,2.0),0)
                                     index = np.argmax(bounding_box_size-offset_dist_squared*2.0) # some extra weight on the centering
                                     det_arr.append(det[index,:])
+                                    _bbox = det[index, :]
+                                    _landmark = points[:, index].reshape((2, 5)).T
+                                    warp0 = alignment(img, _landmark, img_size)
+                                    #### crop aligned images
+                                    bounding_boxes_new, _ = align.detect_face.detect_face(warp0, minsize, pnet, rnet,
+                                                                                          onet,
+                                                                                          threshold, factor)
+                                    det = bounding_boxes_new[0, 0:4]
+                                    nrof_successfully_aligned = crop_face(0, det, args.margin, img_size, warp0,
+                                                                               args.image_size,
+                                                                               nrof_successfully_aligned,
+                                                                               False, output_filename, text_file)
                             else:
-                                det_arr.append(np.squeeze(det))
 
-                            for i, det in enumerate(det_arr):
-                                det = np.squeeze(det)
-                                bb = np.zeros(4, dtype=np.int32)
-                                if args.margin > 1:
-                                    #=================================================
-                                    # cropped with fixed margin which is used for lfw
-                                    bb[0] = np.maximum(det[0]-args.margin/2, 0)
-                                    bb[1] = np.maximum(det[1]-args.margin/2, 0)
-                                    bb[2] = np.minimum(det[2]+args.margin/2, img_size[1])
-                                    bb[3] = np.minimum(det[3]+args.margin/2, img_size[0])
-                                else:
-                                    #=================================================
-                                    # cropped with percentage margin can be used for images download from internet
-                                    width = bb[2] - bb[0]
-                                    height = bb[3] - bb[1]
-                                    bb[0] = np.maximum(det[0]-args.margin*width, 0)
-                                    bb[1] = np.maximum(det[1]-args.margin*height, 0)
-                                    bb[2] = np.minimum(det[2]+args.margin*width, img_size[1])
-                                    bb[3] = np.minimum(det[3]+args.margin*height, img_size[0])
+                                _landmark = points.reshape((2, 5)).T
+                                warp0 = alignment(img, _landmark, img_size)
+                                #### crop aligned images
+                                bounding_boxes_new, _ = align.detect_face.detect_face(warp0, minsize, pnet, rnet, onet,
+                                                                                       threshold, factor)
+                                det = bounding_boxes_new[:, 0:4]
+                                nrof_successfully_aligned = crop_face(0, det, args.margin, img_size, warp0, args.image_size, nrof_successfully_aligned,
+                                               False, output_filename, text_file)
 
-                                cropped = img[bb[1]:bb[3],bb[0]:bb[2],:]
-                                scaled = misc.imresize(cropped, (args.image_size, args.image_size), interp='bilinear')
-                                nrof_successfully_aligned += 1
-                                filename_base, file_extension = os.path.splitext(output_filename)
-                                if args.detect_multiple_faces:
-                                    output_filename_n = "{}_{}{}".format(filename_base, i, file_extension)
-                                else:
-                                    output_filename_n = "{}{}".format(filename_base, file_extension)
-                                misc.imsave(output_filename_n, scaled)
-                                text_file.write('%s %d %d %d %d\n' % (output_filename_n, bb[0], bb[1], bb[2], bb[3]))
                         else:
                             print('Unable to align "%s"' % image_path)
                             text_file.write('%s\n' % (output_filename))
+                            os.remove(image_path)
                             
     print('Total number of images: %d' % nrof_images_total)
     print('Number of successfully aligned images: %d' % nrof_successfully_aligned)
             
+
+def crop_face(i, det, margin,img_size, img, image_size, nrof_successfully_aligned,detect_multiple_faces,output_filename,text_file):
+    det = np.squeeze(det)
+    bb = np.zeros(4, dtype=np.int32)
+    if margin > 1:
+        # =================================================
+        # cropped with fixed margin which is used for lfw
+        bb[0] = np.maximum(det[0] - margin / 2, 0)
+        bb[1] = np.maximum(det[1] - margin / 2, 0)
+        bb[2] = np.minimum(det[2] + margin / 2, img_size[1])
+        bb[3] = np.minimum(det[3] + margin / 2, img_size[0])
+    else:
+        # =================================================
+        # cropped with percentage margin can be used for images download from internet
+        width = bb[2] - bb[0]
+        height = bb[3] - bb[1]
+        bb[0] = np.maximum(det[0] - margin * width, 0)
+        bb[1] = np.maximum(det[1] - margin * height, 0)
+        bb[2] = np.minimum(det[2] + margin * width, img_size[1])
+        bb[3] = np.minimum(det[3] + margin * height, img_size[0])
+
+    cropped = img[bb[1]:bb[3], bb[0]:bb[2], :]
+    scaled = misc.imresize(cropped, (image_size, image_size), interp='bilinear')
+    nrof_successfully_aligned += 1
+    filename_base, file_extension = os.path.splitext(output_filename)
+    if detect_multiple_faces:
+        output_filename_n = "{}_{}{}".format(filename_base, i, file_extension)
+    else:
+        output_filename_n = "{}{}".format(filename_base, file_extension)
+    misc.imsave(output_filename_n, scaled)
+    text_file.write('%s %d %d %d %d\n' % (output_filename_n, bb[0], bb[1], bb[2], bb[3]))
+    return nrof_successfully_aligned
+
+
+def alignment(img, landmark, image_size):
+
+    src = np.array([[30.2946, 51.6963], [65.5318, 51.5014],
+                    [48.0252, 71.7366], [33.5493, 92.3655],
+                    [62.7299, 92.2041]], dtype=np.float32)
+    dst = landmark.astype(np.float32)
+
+    tform = trans.SimilarityTransform()
+    tform.estimate(dst, src)
+    M = tform.params[0:2,:]
+
+    warped = cv2.warpAffine(img, M, (image_size[1],image_size[0]), borderValue = 0.0)
+
+    return warped
+
+
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
@@ -171,7 +230,7 @@ def parse_arguments(argv):
     parser.add_argument('--gpu_memory_fraction', type=float,
         help='Upper bound on the amount of GPU memory that will be used by the process.', default=1.0)
     parser.add_argument('--detect_multiple_faces', type=bool,
-                        help='Detect and align multiple faces per image.', default=False)
+                        help='Detect and align multiple faces per image.', default=True)
     return parser.parse_args(argv)
 
 if __name__ == '__main__':
