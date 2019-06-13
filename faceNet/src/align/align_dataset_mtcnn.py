@@ -33,6 +33,7 @@ import argparse
 import tensorflow as tf
 import numpy as np
 import cv2
+import math
 from skimage import transform as trans
 sys.path.append("../") # useful for the import of facenet in another folder
 
@@ -106,6 +107,17 @@ def main(args):
 
                         if nrof_faces>0:
                             det = bounding_boxes[:, 0:4]
+
+                            # for i in range(nrof_faces):
+                            #     bb = det[i, :].astype(dtype=np.int32)
+                            #     img_and_crop = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (0, 255, 0))
+                            #
+                            # # image_tmp = cv2.cvtColor(img_and_crop, cv2.COLOR_BGR2RGB)
+                            # # cv2.imshow('img_crp', image_tmp)
+                            # # cv2.waitKey()
+
+
+
                             det_arr = []
                             _landmark = None
                             img_size = np.asarray(img.shape)[0:2]
@@ -115,20 +127,41 @@ def main(args):
                                 if args.detect_multiple_faces:
                                     for i in range(nrof_faces):
                                         _landmark = points[:, i].reshape((2, 5)).T
+                                        _bb = np.squeeze(bounding_boxes[i, 0:4])
 
-                                        warp0 = alignment(img, _landmark, img_size)
-                                        #### crop aligned images
+                                        warp0, M = alignment(img, _landmark, img_size)
+                                        ### crop aligned images
                                         _bounding_boxes_new, _ = align.detect_face.detect_face(warp0, minsize, pnet,
                                                                                               rnet, onet,
                                                                                              threshold, factor)
-                                        bounding_boxes_new = _bounding_boxes_new[_bounding_boxes_new[:, 0].argsort()]
-                                        cv2.imshow('warp', warp0)
-                                        cv2.waitKey(0)
-                                        cv2.destroyAllWindows()
+                                        x_positive = np.where(_bounding_boxes_new[:, 0] > 0)[0]
+                                        if np.size(x_positive) == 0:
+                                            bounding_boxes_new = _bounding_boxes_new
+                                        else:
+                                            _bounding_boxes_new_ =_bounding_boxes_new[x_positive, :]
 
-                                        if len(bounding_boxes_new) == 0:
-                                            continue
-                                        det = bounding_boxes_new[0, 0:4]
+                                            bounding_boxes_new = _bounding_boxes_new_[_bounding_boxes_new_[:, 0].argsort()]
+                                        # cv2.imshow('warp', warp0)
+                                        # cv2.waitKey(0)
+                                        # cv2.destroyAllWindows()
+
+                                        # rect_pts_s = np.array([[[_bb[0],_bb[1]]], [[_bb[2], _bb[1]]], [[_bb[0], _bb[3]]], [[_bb[2], _bb[3]]]], dtype=np.float32)
+                                        # rect_M = np.array([[M[0,0], M[0,1], M[0,2]], [M[1,0], M[1,1], M[0,2]], [0,0,1]], dtype=np.float32)
+                                        #
+                                        # xA, yA, w, h = (10, 20, 100, 200)
+                                        # xB, yB = xA + w, yA + h
+                                        # rect_pts = np.array([[[xA, yA]], [[xB, yA]], [[xA, yB]], [[xB, yB]]],
+                                        #                          dtype=np.float32)
+                                        # affine_warp = np.array([[1, 0, -10], [0, 1, -20], [0, 0, 1]],
+                                        #                             dtype=np.float32)
+                                        # re = cv2.perspectiveTransform(rect_pts, affine_warp)
+                                        # re = cv2.getPerspectiveTransform()
+                                        #
+                                        # rect_pts_p_ = cv2.perspectiveTransform(rect_pts_s, rect_M)
+                                        # rect_pts_p = np.squeeze(rect_pts_p_)
+                                        # det = [rect_pts_p[0][0], rect_pts_p[0][1], rect_pts_p[3][0], rect_pts_p[3][1]]
+
+                                        det = bounding_boxes_new[0:4]
                                         nrof_successfully_aligned = crop_face(i, det, args.margin, img_size, warp0,
                                                                               args.image_size,
                                                                               nrof_successfully_aligned,
@@ -143,12 +176,12 @@ def main(args):
                                     det_arr.append(det[index,:])
                                     _bbox = det[index, :]
                                     _landmark = points[:, index].reshape((2, 5)).T
-                                    warp0 = alignment(img, _landmark, img_size)
+                                    warp0, _ = alignment(img, _landmark, img_size)
                                     #### crop aligned images
                                     bounding_boxes_new, _ = align.detect_face.detect_face(warp0, minsize, pnet, rnet,
                                                                                           onet,
                                                                                           threshold, factor)
-                                    det = bounding_boxes_new[0, 0:4]
+                                    det = bounding_boxes_new[0]
                                     nrof_successfully_aligned = crop_face(0, det, args.margin, img_size, warp0,
                                                                                args.image_size,
                                                                                nrof_successfully_aligned,
@@ -156,7 +189,7 @@ def main(args):
                             else:
 
                                 _landmark = points.reshape((2, 5)).T
-                                warp0 = alignment(img, _landmark, img_size)
+                                warp0, M = alignment(img, _landmark, img_size)
                                 #### crop aligned images
                                 bounding_boxes_new, _ = align.detect_face.detect_face(warp0, minsize, pnet, rnet, onet,
                                                                                        threshold, factor)
@@ -173,6 +206,12 @@ def main(args):
     print('Number of successfully aligned images: %d' % nrof_successfully_aligned)
 
 
+def visulize_tec(img, bb):
+    img_and_crop = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (0, 255, 0))
+    image_tmp = cv2.cvtColor(img_and_crop, cv2.COLOR_BGR2RGB)
+    cv2.imshow('img_crp', image_tmp)
+    cv2.waitKey()
+
 
 def crop_face(i, det, margin,img_size, img, image_size, nrof_successfully_aligned,detect_multiple_faces,output_filename,text_file):
     det = np.squeeze(det)
@@ -187,8 +226,8 @@ def crop_face(i, det, margin,img_size, img, image_size, nrof_successfully_aligne
     else:
         # =================================================
         # cropped with percentage margin can be used for images download from internet
-        width = bb[2] - bb[0]
-        height = bb[3] - bb[1]
+        width = det[2] - det[0]
+        height = det[3] - det[1]
         bb[0] = np.maximum(det[0] - margin * width, 0)
         bb[1] = np.maximum(det[1] - margin * height, 0)
         bb[2] = np.minimum(det[2] + margin * width, img_size[1])
@@ -220,8 +259,7 @@ def alignment(img, landmark, image_size):
 
     warped = cv2.warpAffine(img, M, (image_size[1],image_size[0]), borderValue = 0.0)
 
-    return warped
-
+    return warped, M
 
 
 def parse_arguments(argv):
