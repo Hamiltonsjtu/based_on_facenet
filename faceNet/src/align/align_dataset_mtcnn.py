@@ -118,9 +118,16 @@ def main(args):
 
                                         warp0 = alignment(img, _landmark, img_size)
                                         #### crop aligned images
-                                        bounding_boxes_new, _ = align.detect_face.detect_face(warp0, minsize, pnet,
+                                        _bounding_boxes_new, _ = align.detect_face.detect_face(warp0, minsize, pnet,
                                                                                               rnet, onet,
-                                                                                              threshold, factor)
+                                                                                             threshold, factor)
+                                        bounding_boxes_new = _bounding_boxes_new[_bounding_boxes_new[:, 0].argsort()]
+                                        cv2.imshow('warp', warp0)
+                                        cv2.waitKey(0)
+                                        cv2.destroyAllWindows()
+
+                                        if len(bounding_boxes_new) == 0:
+                                            continue
                                         det = bounding_boxes_new[0, 0:4]
                                         nrof_successfully_aligned = crop_face(i, det, args.margin, img_size, warp0,
                                                                               args.image_size,
