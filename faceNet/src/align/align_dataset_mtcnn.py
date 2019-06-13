@@ -164,7 +164,8 @@ def main(args):
                             
     print('Total number of images: %d' % nrof_images_total)
     print('Number of successfully aligned images: %d' % nrof_successfully_aligned)
-            
+
+
 
 def crop_face(i, det, margin,img_size, img, image_size, nrof_successfully_aligned,detect_multiple_faces,output_filename,text_file):
     det = np.squeeze(det)
