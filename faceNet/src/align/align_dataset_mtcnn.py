@@ -106,73 +106,109 @@ def main(args):
                         ####  alignment faces
                         bounding_boxes, points = align.detect_face.detect_face(img, minsize, pnet, rnet, onet,
                                                                                threshold, factor)
-                        nrof_faces = points.shape[1]
 
-                        if nrof_faces > 0:
-                            det = bounding_boxes[:, 0:4]
+                        if len(points) != 0:
+                            nrof_faces = points.shape[1]
 
-
-                            # for i in range(nrof_faces):
-                            #     bb = det[i, :].astype(dtype=np.int32)
-                            #     img_and_crop = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (0, 255, 0))
-                            #     cv2.putText(img, '# {}'.format(i), (bb[0], bb[3]-bb[1]), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), lineType=cv2.LINE_AA)
-                            # image_tmp = cv2.cvtColor(img_and_crop, cv2.COLOR_BGR2RGB)
-                            # cv2.imshow('img_crp', image_tmp)
-                            # cv2.waitKey()
+                            if nrof_faces > 0:
+                                det = bounding_boxes[:, 0:4]
 
 
-                            det_arr = []
-                            _landmark = None
-                            img_size = np.asarray(img.shape)[0:2]
+                                # for i in range(nrof_faces):
+                                #     bb = det[i, :].astype(dtype=np.int32)
+                                #     img_and_crop = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (0, 255, 0))
+                                #     cv2.putText(img, '# {}'.format(i), (bb[0], bb[3]-bb[1]), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), lineType=cv2.LINE_AA)
+                                # image_tmp = cv2.cvtColor(img_and_crop, cv2.COLOR_BGR2RGB)
+                                # cv2.imshow('img_crp', image_tmp)
+                                # cv2.waitKey()
 
-                            if nrof_faces > 1:
 
-                                if args.detect_multiple_faces:
-                                    for i in range(nrof_faces):
-                                        _landmark = points[:, i].reshape((2, 5)).T
-                                        _bb = np.squeeze(bounding_boxes[i, 0:4])
+                                det_arr = []
+                                _landmark = None
+                                img_size = np.asarray(img.shape)[0:2]
 
-                                        warp0, M = alignment(img, _landmark, img_size)
-                                        ### crop aligned images
-                                        bounding_boxes_new, point = align.detect_face.detect_face(warp0, minsize, pnet,
-                                                                                               rnet, onet,
+                                if nrof_faces > 1:
+
+                                    if args.detect_multiple_faces:
+                                        for i in range(nrof_faces):
+                                            _landmark = points[:, i].reshape((2, 5)).T
+                                            _bb = np.squeeze(bounding_boxes[i, 0:4])
+
+                                            warp0, M = alignment(img, _landmark, img_size)
+                                            ### crop aligned images
+                                            bounding_boxes_new, point = align.detect_face.detect_face(warp0, minsize, pnet,
+                                                                                                   rnet, onet,
+                                                                                                  threshold, factor)
+
+                                            if np.shape(bounding_boxes_new)[0] > 1:
+                                                print(
+                                                    '======find more faces after warp choose the most likely one! ======')
+                                                offsets = [np.linalg.norm(dist(point[:, i])) for i in
+                                                           range(np.shape(point)[1])]
+                                                index_min = np.argmin(offsets)
+                                                det = bounding_boxes_new[index_min, 0:4]
+                                            elif np.shape(bounding_boxes_new)[0] == 0:
+                                                print('\n')
+                                                print('====== #{} have faces, while warp has none ======'.format(
+                                                    output_filename))
+                                                print('\n')
+
+                                            else:
+                                                det = bounding_boxes_new[0, 0:4]
+
+                                            # bb = det.astype(dtype=np.int32)
+                                            # img_and_crop = cv2.rectangle(warp0, (bb[0], bb[1]), (bb[2], bb[3]),
+                                            #                                  (0, 255, 0))
+                                            # image_tmp = cv2.cvtColor(img_and_crop, cv2.COLOR_BGR2RGB)
+                                            # cv2.imshow('img_crp', image_tmp)
+                                            # cv2.waitKey()
+
+                                            nrof_successfully_aligned = crop_face(i, det, args.margin, img_size, warp0,
+                                                                                  args.image_size,
+                                                                                  nrof_successfully_aligned,
+                                                                                  args.detect_multiple_faces,
+                                                                                  output_filename, text_file)
+
+                                    else:
+                                        bounding_box_size = (det[:, 2] - det[:, 0]) * (det[:, 3] - det[:, 1])
+                                        img_center = img_size / 2
+                                        offsets = np.vstack([(det[:, 0] + det[:, 2]) / 2 - img_center[1],
+                                                             (det[:, 1] + det[:, 3]) / 2 - img_center[0]])
+                                        offset_dist_squared = np.sum(np.power(offsets, 2.0), 0)
+                                        index = np.argmax(
+                                            2*bounding_box_size - offset_dist_squared)  # some extra weight on the centering
+                                        det_arr.append(det[index, :])
+                                        _bbox = det[index, :]
+                                        _landmark = points[:, index].reshape((2, 5)).T
+                                        warp0, _ = alignment(img, _landmark, img_size)
+                                        #### crop aligned images
+                                        bounding_boxes_new, point = align.detect_face.detect_face(warp0, minsize, pnet, rnet,
+                                                                                              onet,
                                                                                               threshold, factor)
+
                                         if np.shape(bounding_boxes_new)[0] > 1:
                                             print('======find more faces after warp choose the most likely one! ======')
                                             offsets = [np.linalg.norm(dist(point[:, i])) for i in range(np.shape(point)[1])]
                                             index_min = np.argmin(offsets)
-                                            det = bounding_boxes_new[index_min,0:4]
+                                            det = bounding_boxes_new[index_min, 0:4]
+                                        elif np.shape(bounding_boxes_new)[0] == 0:
+                                            print('\n')
+                                            print('====== #{} have faces, while warp has none ======'.format(output_filename))
+                                            print('\n')
+                                            continue
                                         else:
                                             det = bounding_boxes_new[0, 0:4]
 
-                                        # bb = det.astype(dtype=np.int32)
-                                        # img_and_crop = cv2.rectangle(warp0, (bb[0], bb[1]), (bb[2], bb[3]),
-                                        #                                  (0, 255, 0))
-                                        # image_tmp = cv2.cvtColor(img_and_crop, cv2.COLOR_BGR2RGB)
-                                        # cv2.imshow('img_crp', image_tmp)
-                                        # cv2.waitKey()
 
-                                        nrof_successfully_aligned = crop_face(i, det, args.margin, img_size, warp0,
+                                        nrof_successfully_aligned = crop_face(0, det, args.margin, img_size, warp0,
                                                                               args.image_size,
                                                                               nrof_successfully_aligned,
-                                                                              args.detect_multiple_faces,
-                                                                              output_filename, text_file)
-
+                                                                              False, output_filename, text_file)
                                 else:
-                                    bounding_box_size = (det[:, 2] - det[:, 0]) * (det[:, 3] - det[:, 1])
-                                    img_center = img_size / 2
-                                    offsets = np.vstack([(det[:, 0] + det[:, 2]) / 2 - img_center[1],
-                                                         (det[:, 1] + det[:, 3]) / 2 - img_center[0]])
-                                    offset_dist_squared = np.sum(np.power(offsets, 2.0), 0)
-                                    index = np.argmax(
-                                        2*bounding_box_size - offset_dist_squared)  # some extra weight on the centering
-                                    det_arr.append(det[index, :])
-                                    _bbox = det[index, :]
-                                    _landmark = points[:, index].reshape((2, 5)).T
-                                    warp0, _ = alignment(img, _landmark, img_size)
+                                    _landmark = points.reshape((2, 5)).T
+                                    warp0, M = alignment(img, _landmark, img_size)
                                     #### crop aligned images
-                                    bounding_boxes_new, point = align.detect_face.detect_face(warp0, minsize, pnet, rnet,
-                                                                                          onet,
+                                    bounding_boxes_new, point = align.detect_face.detect_face(warp0, minsize, pnet, rnet, onet,
                                                                                           threshold, factor)
 
                                     if np.shape(bounding_boxes_new)[0] > 1:
@@ -180,31 +216,25 @@ def main(args):
                                         offsets = [np.linalg.norm(dist(point[:, i])) for i in range(np.shape(point)[1])]
                                         index_min = np.argmin(offsets)
                                         det = bounding_boxes_new[index_min, 0:4]
+                                    elif np.shape(bounding_boxes_new)[0] == 0:
+                                        print('\n')
+                                        print('====== #{} have faces, while warp has none ======'.format(output_filename))
+                                        print('\n')
+                                        continue
                                     else:
                                         det = bounding_boxes_new[0, 0:4]
+
+
                                     nrof_successfully_aligned = crop_face(0, det, args.margin, img_size, warp0,
-                                                                          args.image_size,
-                                                                          nrof_successfully_aligned,
+                                                                          args.image_size, nrof_successfully_aligned,
                                                                           False, output_filename, text_file)
+
                             else:
-                                _landmark = points.reshape((2, 5)).T
-                                warp0, M = alignment(img, _landmark, img_size)
-                                #### crop aligned images
-                                bounding_boxes_new, _ = align.detect_face.detect_face(warp0, minsize, pnet, rnet, onet,
-                                                                                      threshold, factor)
-                                if np.shape(bounding_boxes_new)[0] > 1:
-                                    print('========== find more faces after warp choose the most likely one! ============')
-                                    det = bounding_boxes_new[0, 0:4]
-                                else:
-                                    det = bounding_boxes_new[:, 0:4]
-
-                                nrof_successfully_aligned = crop_face(0, det, args.margin, img_size, warp0,
-                                                                      args.image_size, nrof_successfully_aligned,
-                                                                      False, output_filename, text_file)
-
+                                print('Unable to align "%s"' % image_path)
+                                text_file.write('%s\n' % (output_filename))
+                                os.remove(image_path)
                         else:
-                            print('Unable to align "%s"' % image_path)
-                            text_file.write('%s\n' % (output_filename))
+                            print('====  No faces in this image in {}, remove it! ===='.format(output_filename))
                             os.remove(image_path)
 
     print('Total number of images: %d' % nrof_images_total)
@@ -293,7 +323,7 @@ def parse_arguments(argv):
     parser.add_argument('--gpu_memory_fraction', type=float,
                         help='Upper bound on the amount of GPU memory that will be used by the process.', default=1.0)
     parser.add_argument('--detect_multiple_faces', type=bool,
-                        help='Detect and align multiple faces per image.', default=True)
+                        help='Detect and align multiple faces per image.', default=False)
     return parser.parse_args(argv)
 
 
