@@ -112,8 +112,6 @@ def main(args):
 
                             if nrof_faces > 0:
                                 det = bounding_boxes[:, 0:4]
-
-
                                 # for i in range(nrof_faces):
                                 #     bb = det[i, :].astype(dtype=np.int32)
                                 #     img_and_crop = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (0, 255, 0))
@@ -121,8 +119,6 @@ def main(args):
                                 # image_tmp = cv2.cvtColor(img_and_crop, cv2.COLOR_BGR2RGB)
                                 # cv2.imshow('img_crp', image_tmp)
                                 # cv2.waitKey()
-
-
                                 det_arr = []
                                 _landmark = None
                                 img_size = np.asarray(img.shape)[0:2]
@@ -152,7 +148,7 @@ def main(args):
                                                 print('====== #{} have faces, while warp has none ======'.format(
                                                     output_filename))
                                                 print('\n')
-
+                                                det = _bb
                                             else:
                                                 det = bounding_boxes_new[0, 0:4]
 
@@ -323,7 +319,7 @@ def parse_arguments(argv):
     parser.add_argument('--gpu_memory_fraction', type=float,
                         help='Upper bound on the amount of GPU memory that will be used by the process.', default=1.0)
     parser.add_argument('--detect_multiple_faces', type=bool,
-                        help='Detect and align multiple faces per image.', default=False)
+                        help='Detect and align multiple faces per image.', default=True)
     return parser.parse_args(argv)
 
 
