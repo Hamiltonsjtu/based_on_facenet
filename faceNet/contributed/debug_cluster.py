@@ -132,8 +132,13 @@ def main(model, data_dir_input, batch_size, image_size, margin, min_cluster_size
                         if not os.path.exists(out_dir):
                             os.makedirs(out_dir)
                             for i in test_la:
-                                im_lo = os.path.join(data_dir, os.listdir(data_dir)[i])
-                                imag_re = misc.imread(im_lo)
+                                image_path = os.path.join(data_dir, os.listdir(data_dir)[j])
+                                ispng = image_path.endswith('.png')
+                                if ispng:
+                                    imag_re = misc.imread(image_path)
+                                else:
+                                    continue
+
                                 misc.imsave(os.path.join(out_dir, str(cnt) + '.png'), imag_re)
                                 cnt += 1
                     else:
@@ -145,7 +150,13 @@ def main(model, data_dir_input, batch_size, image_size, margin, min_cluster_size
                             if not os.path.exists(path):
                                 os.makedirs(path)
                                 for j in np.nonzero(labels == i)[0]:
-                                    imag_re = misc.imread(os.path.join(data_dir, os.listdir(data_dir)[j]))
+                                    image_path = os.path.join(data_dir, os.listdir(data_dir)[j])
+                                    ispng = image_path.endswith('.png')
+                                    if ispng:
+                                        imag_re = misc.imread(image_path)
+                                    else:
+                                        continue
+
                                     misc.imsave(os.path.join(path, str(cnt) + '.png'), imag_re)
                                     cnt += 1
                             else:
