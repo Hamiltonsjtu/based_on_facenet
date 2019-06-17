@@ -42,11 +42,10 @@ import align.detect_face
 
 def main(args):
 
-    images = load_and_align_data(args.image_files[0], args.image_size, args.margin, args.gpu_memory_fraction)
     with tf.Graph().as_default():
 
         with tf.Session() as sess:
-      
+            ########################################################################
             # Load the model
             start = time.time()
             facenet.load_model(args.model)
@@ -55,7 +54,8 @@ def main(args):
             images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")
             embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
             phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
-
+            ########################################################################
+            images = load_and_align_data(args.image_files[0], args.image_size, args.margin, args.gpu_memory_fraction)
             # Run forward pass to calculate embeddings
             feed_dict = {images_placeholder: images, phase_train_placeholder:False}
             emb = sess.run(embeddings, feed_dict=feed_dict)
