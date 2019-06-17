@@ -40,11 +40,8 @@ import align.detect_face
 from sklearn.cluster import DBSCAN
 
 
-
-
 def main(model, data_dir_input, batch_size, image_size, margin, min_cluster_size, cluster_threshold, largest_cluster_only, gpu_memory_fraction):
-    pnet, rnet, onet = create_network_face_detection(gpu_memory_fraction)
-
+    # pnet, rnet, onet = create_network_face_detection(gpu_memory_fraction)
     with tf.Graph().as_default():
 
         with tf.Session() as sess:
@@ -75,7 +72,7 @@ def main(model, data_dir_input, batch_size, image_size, margin, min_cluster_size
 
                     image_batch = load_images_from_path_list(data_dir, paths_batch)
                     print('shape of image_batch ', np.shape(image_batch))
-                    images = align_data(image_batch, image_size, margin, pnet, rnet, onet)
+                    images = align_data(image_batch, image_size)#, margin, pnet, rnet, onet)
                     feed_dict = {images_placeholder: images, phase_train_placeholder: False}
                     if i < nrof_images-1:
                         emb_array[i*batch_size:(i+1)*batch_size, :] = sess.run(embeddings, feed_dict=feed_dict)
@@ -101,7 +98,6 @@ def main(model, data_dir_input, batch_size, image_size, margin, min_cluster_size
                 #     print('    %1d     ' % i, end='')
                 # print('')
                 for i in range(np.shape(emb_array)[0]):
-                    # print('%1d  ' % i, end='')
                     for j in range(np.shape(emb_array)[0]):
                         dist = np.sqrt(np.sum(np.square(np.subtract(emb_array[i, :], emb_array[j, :]))))
                         matrix[i][j] = dist
@@ -159,13 +155,11 @@ def main(model, data_dir_input, batch_size, image_size, margin, min_cluster_size
                                     cnt += 1
 
 
-def align_data(image_list, image_size, margin, pnet, rnet, onet):
-    minsize = 20  # minimum size of face
-    threshold = [0.6, 0.7, 0.7]  # three steps's threshold
-    factor = 0.709  # scale factor
-
+def align_data(image_list, image_size):#, margin, pnet, rnet, onet):
     img_list = []
-
+    # minsize = 20  # minimum size of face
+    # threshold = [0.6, 0.7, 0.7]  # three steps's threshold
+    # factor = 0.709  # scale factor
     # for x in range(len(image_list)):
     #     img_size = np.asarray(image_list[x].shape)[0:2]
     #     bounding_boxes, _ = align.detect_face.detect_face(image_list[x], minsize, pnet, rnet, onet, threshold, factor)
@@ -228,7 +222,7 @@ def load_images_from_folder(folder):
 if __name__ == "__main__":
 
     model = '../2017'
-    data_dir_input = 'f:/peoples_margin44'
+    data_dir_input = 'F:/test_img'
     batch_size = 10
     image_size = 160
     margin = 44
