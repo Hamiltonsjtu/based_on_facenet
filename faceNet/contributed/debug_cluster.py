@@ -144,11 +144,11 @@ def main(model, data_dir_input, batch_size, image_size, margin, min_cluster_size
                     else:
                         print('Saving all clusters')
                         labels_ = sorted(list(labels), key=list(labels).count, reverse=True)
-                        labels = labels_
-                        labels_set = set_not_by_sort(labels)
-                        for i in range(len(labels_set)):
+                        # labels = labels_
+                        labels_set = set_not_by_sort(labels_)
+                        for i in range(no_clusters):
                             cnt = 1
-                            print('Cluster {}: {}'.format(i, np.nonzero(labels == i)[0]))
+                            print('Cluster {}: {}'.format(i, np.nonzero(labels == labels_set[i])[0]))
                             path = os.path.join(out_dir, str(i))
                             if not os.path.exists(path):
                                 os.makedirs(path)
@@ -174,6 +174,7 @@ def set_not_by_sort(x):
     for i in x:
         if re[-1] != i:
             re.append(i)
+    return re
 
 
 
