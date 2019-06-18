@@ -143,13 +143,16 @@ def main(model, data_dir_input, batch_size, image_size, margin, min_cluster_size
                                 cnt += 1
                     else:
                         print('Saving all clusters')
-                        for i in range(no_clusters):
+                        labels_ = sorted(list(labels), key=list(labels).count, reverse=True)
+                        labels = labels_
+                        labels_set = set_not_by_sort(labels)
+                        for i in range(len(labels_set)):
                             cnt = 1
                             print('Cluster {}: {}'.format(i, np.nonzero(labels == i)[0]))
                             path = os.path.join(out_dir, str(i))
                             if not os.path.exists(path):
                                 os.makedirs(path)
-                                for j in np.nonzero(labels == i)[0]:
+                                for j in np.nonzero(labels == labels_set[i])[0]:
                                     image_path = os.path.join(data_dir, os.listdir(data_dir)[j])
                                     ispng = image_path.endswith('.png')
                                     if ispng:
@@ -160,10 +163,18 @@ def main(model, data_dir_input, batch_size, image_size, margin, min_cluster_size
                                     misc.imsave(os.path.join(path, str(cnt) + '.png'), imag_re)
                                     cnt += 1
                             else:
-                                for j in np.nonzero(labels == i)[0]:
+                                for j in np.nonzero(labels == labels_set[i])[0]:
                                     imag_re = misc.imread(os.path.join(data_dir, os.listdir(data_dir)[j]))
                                     misc.imsave(os.path.join(path, str(cnt) + '.png'), imag_re)
                                     cnt += 1
+
+
+def set_not_by_sort(x):
+    re = [x[0]]
+    for i in x:
+        if re[-1] != i:
+            re.append(i)
+
 
 
 def align_data(image_list, image_size):#, margin, pnet, rnet, onet):
@@ -233,12 +244,13 @@ def load_images_from_folder(folder):
 if __name__ == "__main__":
 
     model = '../2017'
+    # data_dir_input = 'F:/raw_image_web_crop_multi'
     data_dir_input = 'F:/test_img'
     batch_size = 10
     image_size = 160
     margin = 44
     min_cluster_size = 1
-    cluster_threshold = 0.7
+    cluster_threshold = 0.4
     largest_cluster_only = False
     gpu_memory_fraction = 1.0
 
