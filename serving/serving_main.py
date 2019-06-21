@@ -8,16 +8,17 @@ import argparse
 
 import scipy.stats as st
 sys.path.append('serving')
+# sys.path.append('../faceNet/src')
 from process import faceNet_serving_V0
 from detect_face_np import load_and_align_data
-import logging_flask
-import code_message
+from logs import logging_flask
+from code_message import code_message
 from tornado.wsgi import WSGIContainer
 from tornado.httpserver import HTTPServer
 from tornado.ioloop import  IOLoop
 import tensorflow as tf
 import json
-import cv2 as cv
+import cv2
 import numpy as np
 import operator
 import grpc
@@ -30,8 +31,9 @@ logger = logging_flask.get_logger(__name__)
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('facenet', '192.168.1.254:9001', 'PredictionService host:port')
 
+
 FACENET_CHANNEL = grpc.insecure_channel(FLAGS.facenet)
-DATA = np.load('people_embs.npy').item()
+emb_data = np.load('people_embs_V1.npy').item()
 
 
 @app.route('/')
@@ -45,8 +47,10 @@ def upload():
         f = request.files['file']  # 301 file error
         cont = f.read()
         buf = np.frombuffer(cont, dtype=np.byte)
-        img = cv.imdecode(buf, cv.IMREAD_COLOR)
-        faces = load_and_align_data(img)
+        img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+        faces, det_arr = load_and_align_data(img)
+        no_face = 0
+        has_face = 0
         if faces is None:
             print('No Faces in this image!')
             ret = {
@@ -54,8 +58,12 @@ def upload():
                 "code": 200,
                 "message": "Has no faces in image, IMAGES PASS!",
                 "result": "合规"
-
             }
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            img_add = cv2.putText(img, 'No Face!', (10, 500), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
+            filename = str(no_face)+'.jpg'
+            no_face += 1
+            cv2.imwrite("../../No_face/" + filename, img_add)
         else:
             # print(faces.shape)
             emb = faceNet_serving_V0.img_to_emb_feature(faces, FACENET_CHANNEL)
@@ -68,25 +76,24 @@ def upload():
             maximum_name = ['test']
             for i in range(num_face):
                 emb_face = emb[i*128:(1+i)*128]
-                likely = cal_sim(emb_face)
-                ret[str(i)] = likely
-                # print('=====================')
+                likely = cal_sim_new(emb_face, emb_data)
                 maximum_name.append(max(likely, key=likely.get))
-
                 maximum.append(likely[max(likely, key=likely.get)])
-                # print('maximum {} and type {} '.format(maximum, type(maximum)))
-                # print('maximum_name {} and type {} '.format(maximum_name, type(maximum_name)))
-                # print('maximum {} and type {} '.format(max(maximum), type(max(maximum))))
-                th = 0.10
+                th = 0.40
 
                 if max(maximum) < th:
                     ret = {
                         "file": f.filename,
                         "code": 300,
                         "message": "Has faces, IMAGES PASS!",
-                        "result":  "合规"
+                        "result":  "合规",
+                       }
 
-                    }
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    img_add = cv2.putText(img, 'has Face!', (10, 500), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
+                    filename = str(has_face) + '.jpg'
+                    has_face += 1
+                    cv2.imwrite("../../has_face_hegui/" + filename, img_add)
 
                 else:
                     index = list(np.where(np.array(maximum) > th)[0])
@@ -98,6 +105,13 @@ def upload():
                                 "user_name": maximum_name[ii+1],
                                 "score": maximum[ii]
                             })
+
+                        font = cv2.FONT_HERSHEY_SIMPLEX
+                        img_add = cv2.putText(img, 'Face!', (10, 500), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
+                        filename = str(face) + '.jpg'
+                        face += 1
+                        cv2.imwrite("../../" + maximum_name[ii+1] + '/' + filename, img_add)
+
                     ret = {
                             "file": f.filename,
                             "code": 301,
@@ -110,14 +124,18 @@ def upload():
     return json.dumps(ret)
 
 
-def cal_sim(emb):
+def cal_sim_new(emb, emb_data):
+    likely = {}
+    for i in emb_data:
+        emb_feature = emb_data[i]['emb_ave']
+        sim = feat_distance_cosine(emb, emb_feature)
+        likely[i] = sim
+    return likely
 
-    # print('embedding vector: ',  emb)
-    ###  load embedding features of critical peoples
+
+def cal_sim(emb, emb_data):
     people = ['xijinping', 'hujintao', 'jiangzemin', 'dengxiaoping', 'wenjiabao', 'maozedong', 'zhouenlai']
-
-    emb_data = DATA
-
+    attribute = ['dist_all', 'dist_average', 'dist_all_average']
     def multi(*args):
         """
         Build multiple level dictionary for python
@@ -132,56 +150,39 @@ def cal_sim(emb):
         else:
             return args[0]
 
-
-    print('type of emb {} and its shape: {}'.format(type(emb), np.shape(emb)))
-
     emb_jack = emb
-    print('emb_face shape', np.shape(emb_jack))
-    jack_dist = multi(people, ['dist_all', 'dist_average', 'dist_all_average'], {})
+    jack_dist = multi(people, attribute, {})
     likely = {}
-    txt = {}
     for i in people:
         jack_dist[i]['dist_average'] = [
             np.sqrt(np.sum(np.square(np.subtract(emb_jack, emb_data[i]['average_emb']))))]
         jack_dist[i]['log_dist_average'] = np.log(jack_dist[i]['dist_average'])
         jack_dist[i]['Z_value'] = (jack_dist[i]['log_dist_average'] - emb_data[i]['log_dist_mean']) / (
         emb_data[i]['log_dist_std'])
-        jack_dist[i]['Prob'] = st.norm.pdf(jack_dist[i]['Z_value']) / st.norm.pdf(0)
-        # print('Prob is {}'.format(st.norm.pdf(jack_dist[i]['Z_value'])/st.norm.pdf(0)))
-        # print('Z value for {} is {}'.format(i, jack_dist[i]['Z_value']))
-        # print('The face is {:.2%} likely {}'.format(jack_dist[i]['Prob'][0], i))
-        likely[i] = jack_dist[i]['Prob'][0]
-    # LIKELY = []
-    # for j in people:
-    #     LIKELY.append(likely[i])
+        # jack_dist[i]['Prob'] = st.norm.pdf(jack_dist[i]['Z_value']) / st.norm.pdf(0)  #pro type is:  <class 'numpy.ndarray'>
+        jack_dist[i]['Prob'] = feat_distance_cosine(emb_jack, emb_data[i]['average_emb'])  # pro type is:  <class 'numpy.float64'>
+        # jack_dist[i]['Prob'] = feat_distance_l2(emb_jack, emb_data[i]['average_emb'])
+        print('pro: ', jack_dist[i]['Prob'])
+        print('pro type is: ', type(jack_dist[i]['Prob']))
+
+        likely[i] = jack_dist[i]['Prob']
     return likely
 
 
+def feat_distance_cosine(feat1, feat2):
+    similarity = np.dot(feat1 / np.linalg.norm(feat1, 2), feat2 / np.linalg.norm(feat2, 2))
+    return similarity
+
+
+def feat_distance_l2(feat1, feat2):
+    feat1_norm = feat1 / np.linalg.norm(feat1, 2)
+    feat2_norm = feat2 / np.linalg.norm(feat2, 2)
+    similarity = 1.0 - np.linalg.norm(feat1_norm - feat2_norm, 2) / 2.0
+    return similarity
+
+
 if __name__ == '__main__':
-    app.run('0.0.0.0',threaded = True)
-    # threaded = true ,多线程，可保证检测不中断
-    # http_server = HTTPServer(WSGIContainer(app))
-    # http_server.listen(5000)
-    # IOLoop.instance().start()
+    app.run('0.0.0.0', threaded = True)
 
-
-
-# def main(args):
-#
-#     images = detect(args.image_paths)
-#     if images is None:
-#         print('This image has no face inside')
-#     else:
-#         emb = [faceNet_serving_V0.img_to_emb_feature(images, "192.168.1.254:9001")]
-#         cal_sim(emb)
-#
-# def parse_arguments(argv):
-#     parser = argparse.ArgumentParser()
-#     parser.add_argument('image_paths', type=str, help='File or dir')
-#     return parser.parse_args(argv)
-#
-#
-# if __name__ == '__main__':
-#     main(parse_arguments(sys.argv[1:]))
 
 
