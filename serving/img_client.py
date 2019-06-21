@@ -1,6 +1,7 @@
 import requests
 import json
 import os
+import numpy as np
 # #######-------------image client------------#######
 
 peoples = ['jiangzemin', 'hujintao', 'xijinping', 'dengxiaoping', 'wenjiabao', 'maozedong', 'zhouenlai']
@@ -32,10 +33,12 @@ for name in peoples:
                     num_right_people += 1
 
         num_all += 1
-    result[i] = {'num_care': num_care, 'num_all': num_all, 'precision' : num_care/num_all, 'num_right_one':num_right_people, 'accuracy': num_right_people/num_all}
+    result[name] = {'num_care': num_care, 'num_all': num_all, 'precision': num_care/num_all, 'num_right_one':num_right_people, 'accuracy': num_right_people/num_all}
     print('num_care: {}, all {} and precision {}'.format(num_care, num_all, num_care/num_all))
     print('num of detect the right one is {}, and accuracy is {}'.format(num_right_people, num_right_people/num_all))
 
+
+np.save('result_without_aligned_V1.npy', result)
 
 # people_en_ch = {'xijinping': '习近平', 'hujintao': '胡锦涛', 'jiangzemin': '江泽民', 'dengxiaoping': '邓小平', 'wenjiabao': '温家宝', 'maozedong': '毛泽东', 'zhouenlai': '周恩来'}
 #
