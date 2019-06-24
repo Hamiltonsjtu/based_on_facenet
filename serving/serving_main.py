@@ -83,6 +83,9 @@ def upload():
                     }
                 else:
                     index = list(np.where(np.array(maximum) > th)[0])
+                    det_arr_tmp = np.array(det_arr)[index, :]
+                    det_arr_ser = np.reshape(det_arr_tmp, (1, np.size(det_arr_tmp)))
+
                     data = []
                     for ii in index:
                         data.append(
@@ -91,6 +94,7 @@ def upload():
                                 "user_name": maximum_name[ii+1],
                                 "score": maximum[ii]
                             })
+
                     ret = {
                             "file": f.filename,
                             "code": 301,

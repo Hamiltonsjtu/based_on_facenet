@@ -24,39 +24,44 @@ def img_restore(img_path, returnval, people):
 
         font = cv2.FONT_HERSHEY_SIMPLEX
         img_add = cv2.putText(img, 'No_Face!', (10, 10), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
-        dir = 'E:/test_Re/' + people + '/' + 'No_face/'
+        dir = 'E:/test_Re_1/' + people + '/' + 'No_face/'
         if not os.path.exists(dir):
             os.makedirs(dir)
         cv2.imwrite(dir + img_name, img_add)
 
     elif returnval['message'] == 'Has_face_pass':
-        det_arr = returnval['det_arr']
-        for i in range(np.shape(det_arr)[0]):
-            det_arr_slice = det_arr[i]
+        det_arr_ = returnval['det_arr'][0]
+        num_face = len(det_arr_)//4
+        det_arr = np.reshape(det_arr_, (num_face, 4))
+        for i in range(num_face):
+            det_arr_slice = det_arr[i,:]
             bb = np.array(det_arr_slice, dtype=np.int32)
             font = cv2.FONT_HERSHEY_SIMPLEX
             img_rec = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (0, 255, 0))
-            img_add = cv2.putText(img_rec, 'has Face!', (10, 10), font, 4, (255, 255, 255), 1, cv2.LINE_AA)
+            img_add = cv2.putText(img_rec, 'has Face!', (10, 10), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
 
-            dir = 'E:/test_Re/' + people + '/' + 'detect_face_is_passed/'
+            dir = 'E:/test_Re_1/' + people + '/' + 'detect_face_is_passed/'
             if not os.path.exists(dir):
                 os.makedirs(dir)
             cv2.imwrite(dir + file_name + '_' + str(i) + file_extension, img_add)
 
     else:
-        det_arr = returnval['det_arr']
+        det_arr_ = returnval['det_arr'][0]
+        num_face = len(det_arr_)//4
+        det_arr = np.reshape(det_arr_, (num_face, 4))
         data = returnval['data']
-        for i in range(len(det_arr)):
-            det_arr_slice = det_arr[i]
+        for i in range(np.shape(det_arr)[0]):
+            det_arr_slice = det_arr[i,:]
             bb = np.array(det_arr_slice, dtype=np.int32)
             font = cv2.FONT_HERSHEY_SIMPLEX
             img_rec = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (0, 255, 0))
             img_add = cv2.putText(img_rec, data[i]['user_name'], (bb[0], bb[3]), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
-            dir = 'E:/test_Re/' + people + '/' + 'not_passed/' + data[i]['user_name'] + '/'
+            dir = 'E:/test_Re_1/' + people + '/' + 'not_passed/' + data[i]['user_name'] + '/'
             if not os.path.exists(dir):
                 os.makedirs(dir)
             cv2.imwrite(dir + file_name + '_' + str(i) + file_extension, img_add)
+
 
 for name in peoples:
 
@@ -68,6 +73,7 @@ for name in peoples:
     num_right_people = 0
     for i in image_pic:
         img_path = os.path.join(image_dir, i)
+        # img_path = 'E:/shuai/Face/TZX/image_test/xi_hu2.jpg'
         # img_path = 'F:/peoples_baidu/jiangzemin_baidu/146.jpg'
         # img = misc.imread(os.path.expanduser(img_path), mode='RGB')
         # faces, det_arr = load_and_align_data(img)
