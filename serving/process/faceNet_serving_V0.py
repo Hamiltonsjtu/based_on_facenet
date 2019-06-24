@@ -1,19 +1,8 @@
 
-import numpy as np
-import tensorflow as tf
 from tensorflow_serving.apis import predict_pb2
 from tensorflow_serving.apis import prediction_service_pb2_grpc
-import grpc
 
-from scipy import misc
 import tensorflow as tf
-import numpy as np
-import time
-import os
-import copy
-import argparse
-import cv2
-import scipy.stats as st
 
 
 ###  function to communicate with tensorflow_serving with help of grpc

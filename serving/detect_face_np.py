@@ -4,7 +4,8 @@ import os
 from scipy import misc
 import cv2
 import sys
-sys.path.append("../src") # useful for the import of facenet in another folder
+# sys.path.append('../')
+sys.path.append("../facenet/src") # useful for the import of facenet in another folder
 import facenet
 import align.detect_face
 
@@ -29,14 +30,8 @@ def load_and_align_data(image):
         sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=False))
         with sess.as_default():
             pnet, rnet, onet = align.detect_face.create_mtcnn(sess, None)
-
-
     img_list = []
-
     bounding_boxes, _ = align.detect_face.detect_face(image, minsize, pnet, rnet, onet, threshold, factor)
-    # print('============== boundary boxes =====================')
-    # print(bounding_boxes)
-
     nrof_faces = bounding_boxes.shape[0]
     if nrof_faces > 0:
         det = bounding_boxes[:, 0:4]
@@ -76,10 +71,11 @@ def load_and_align_data(image):
 
     else:
         images = None
+        det_arr = []
         # image_tmp = cv2.cvtColor(img_and_crop, cv2.COLOR_BGR2RGB)
         # cv2.imshow('img_crp', image_tmp)
         # cv2.waitKey()
         # print('length of img_list is {}'.format(np.shape(img_list)))
         # print('append cropped images shape is {}'.format(np.shape(images)))
 
-    return images
+    return images, det_arr

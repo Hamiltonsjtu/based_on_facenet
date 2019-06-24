@@ -49,27 +49,19 @@ def upload():
         buf = np.frombuffer(cont, dtype=np.byte)
         img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
         faces, det_arr = load_and_align_data(img)
-        no_face = 0
-        has_face = 0
+        print('file {} have #{} faces'.format(f, len(det_arr)))
         if faces is None:
             print('No Faces in this image!')
             ret = {
                 "file": f.filename,
                 "code": 200,
-                "message": "Has no faces in image, IMAGES PASS!",
+                "message": "Has_no_faces",
                 "result": "合规"
             }
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            img_add = cv2.putText(img, 'No Face!', (10, 500), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
-            filename = str(no_face)+'.jpg'
-            no_face += 1
-            cv2.imwrite("../../No_face/" + filename, img_add)
         else:
-            # print(faces.shape)
+            det_arr_ser = np.reshape(det_arr, (1, np.size(det_arr)))
             emb = faceNet_serving_V0.img_to_emb_feature(faces, FACENET_CHANNEL)
             emb = list(emb)
-            # print(len(emb))
-            # print('shape of emb {} and ite type {}'.format(np.shape(emb), type(emb)))
             num_face = int(len(emb)/128)
             ret = {}
             maximum = []
@@ -85,16 +77,10 @@ def upload():
                     ret = {
                         "file": f.filename,
                         "code": 300,
-                        "message": "Has faces, IMAGES PASS!",
+                        "message": "Has_face_pass",
                         "result":  "合规",
-                       }
-
-                    font = cv2.FONT_HERSHEY_SIMPLEX
-                    img_add = cv2.putText(img, 'has Face!', (10, 500), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
-                    filename = str(has_face) + '.jpg'
-                    has_face += 1
-                    cv2.imwrite("../../has_face_hegui/" + filename, img_add)
-
+                        "det_arr": det_arr_ser.tolist()
+                    }
                 else:
                     index = list(np.where(np.array(maximum) > th)[0])
                     data = []
@@ -105,22 +91,14 @@ def upload():
                                 "user_name": maximum_name[ii+1],
                                 "score": maximum[ii]
                             })
-
-                        font = cv2.FONT_HERSHEY_SIMPLEX
-                        img_add = cv2.putText(img, 'Face!', (10, 500), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
-                        filename = str(face) + '.jpg'
-                        face += 1
-                        cv2.imwrite("../../" + maximum_name[ii+1] + '/' + filename, img_add)
-
                     ret = {
                             "file": f.filename,
                             "code": 301,
                             "message": "敏感人物",
                             "result": "不合规",
-                            "data": data
-
-                        }
-
+                            "data": data,
+                            "det_arr": det_arr_ser.tolist()
+                    }
     return json.dumps(ret)
 
 
@@ -159,9 +137,7 @@ def cal_sim(emb, emb_data):
         jack_dist[i]['log_dist_average'] = np.log(jack_dist[i]['dist_average'])
         jack_dist[i]['Z_value'] = (jack_dist[i]['log_dist_average'] - emb_data[i]['log_dist_mean']) / (
         emb_data[i]['log_dist_std'])
-        # jack_dist[i]['Prob'] = st.norm.pdf(jack_dist[i]['Z_value']) / st.norm.pdf(0)  #pro type is:  <class 'numpy.ndarray'>
         jack_dist[i]['Prob'] = feat_distance_cosine(emb_jack, emb_data[i]['average_emb'])  # pro type is:  <class 'numpy.float64'>
-        # jack_dist[i]['Prob'] = feat_distance_l2(emb_jack, emb_data[i]['average_emb'])
         print('pro: ', jack_dist[i]['Prob'])
         print('pro type is: ', type(jack_dist[i]['Prob']))
 
