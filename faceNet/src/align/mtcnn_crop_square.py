@@ -141,7 +141,19 @@ def main(args):
                                 height = float(bb[3] - bb[1])
                                 weight = float(bb[2] - bb[0])
                                 max_size = max([height, weight])/2
-                                bb_new = np.array([center[0]-max_size, center[1]-max_size, center[0]+max_size, center[1]+max_size], dtype=np.int32)
+
+                                img_height = img.shape[0]
+                                img_width = img.shape[1]
+
+                                size_up = img_height - center[1]
+                                size_down = center[1]
+                                size_left = center[0]
+                                size_right = img_width - center[0]
+
+                                adjust_size = min([max_size, size_up, size_down, size_left, size_right])
+
+                                bb_new = np.array([center[0]-adjust_size, center[1]-adjust_size, center[0]+adjust_size, center[1]+adjust_size], dtype=np.int32)
+
                                 print('crop window height: {} width: {}'.format(bb_new[3]-bb_new[1], bb_new[2]-bb_new[0]))
                                 cropped = img[bb_new[1]:bb_new[3],bb_new[0]:bb_new[2],:]
                                 scaled = misc.imresize(cropped, (args.image_size, args.image_size), interp='bilinear')
