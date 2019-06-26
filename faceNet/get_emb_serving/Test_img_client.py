@@ -79,7 +79,14 @@ for name in peoples:
         r = requests.post("http://0.0.0.0:5000/upload", files=files)
         returnval = json.loads(r.text)
 
+
+        # img = np.zeros((returnval['img']['size'][0],returnval['img']['size'][1],3))
+        # for i in range(3):
+        #     img_ = np.reshape(returnval['img'][str(i)], (returnval['img']['size'][0],returnval['img']['size'][1]))
+        #     img[:,:, i] = img_
         print(returnval)
+        # cv2.imshow('image', img)
+        # cv2.waitKey()
 
         img_restore(img_path, returnval, name)
 

@@ -11,27 +11,11 @@ peoples = ['jiangzemin', 'hujintao', 'xijinping', 'dengxiaoping', 'wenjiabao', '
 
 result = {}
 
-
-class ImageEmbClass():
-    "Stores the paths to images for a given class"
-
-    def __init__(self, class_name, name, emb_vector):
-        self.cls = class_name
-        self.name = name
-        self.emb = emb_vector
-
-    def __str__(self):
-        return self.cls + ',' + self.name + ', ' + str(len(self.emb))
-
-    def __len__(self):
-        return len(self.cls)
-
-
 class_names = []
 file_names = []
 embs = []
 
-image_dir = 'F:/baidu_crop/'
+image_dir = 'F:/baidu_crop_wihten_160/'
 
 path_exp = os.path.expanduser(image_dir)
 print('path expanduser is {}'.format(path_exp))

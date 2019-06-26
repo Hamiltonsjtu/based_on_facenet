@@ -49,8 +49,11 @@ def upload():
         cont = f.read()
         buf = np.frombuffer(cont, dtype=np.byte)
         img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
-        print('image size', np.shape(img))
-        faces, det_arr = load_and_align_data(img)
+        # img_0_ser = np.reshape(img[:,:,0], (1, np.size(img[:,:,0])))[0,:].tolist()
+        # img_1_ser = np.reshape(img[:,:,1], (1, np.size(img[:,:,1])))[0,:].tolist()
+        # img_2_ser = np.reshape(img[:,:,2], (1, np.size(img[:,:,2])))[0,:].tolist()
+
+        faces, det_arr, _ = load_and_align_data(img)
         print('file {} have #{} faces'.format(f, len(det_arr)))
         if faces is None:
             print('No Faces in this image!')
@@ -59,20 +62,22 @@ def upload():
                 "code": 200,
                 "message": "Has_no_faces",
                 "result": "合规"
+                # "img": {"size": list(np.shape(img)),"0": img_0_ser, "1": img_1_ser, "2": img_2_ser}
             }
         else:
             det_arr_ser = np.reshape(det_arr, (1, np.size(det_arr)))
-            print('input image shape ', np.shape(faces))
+            print('input face shape ', np.shape(faces))
 
             emb = faceNet_serving_V0.img_to_emb_feature(faces, FACENET_CHANNEL)
+
             print('emb size', len(emb))
             emb = list(emb)
-            num_face = int(len(emb)/512)
+            num_face = int(len(emb)/128)
             ret = {}
             maximum = []
             maximum_name = ['test']
             for i in range(num_face):
-                emb_face = emb[i*512: (1+i)*512]
+                emb_face = emb[i*128: (1+i)*128]
                 likely = cal_sim_new(emb_face, data_ave)
                 print('Likely ', likely)
                 maximum_name.append(max(likely, key=likely.get))
@@ -86,6 +91,7 @@ def upload():
                         "message": "Has_face_pass",
                         "result":  "合规",
                         "det_arr": det_arr_ser.tolist()
+                        # "img":  {"size": list(np.shape(img)), "0": img_0_ser, "1": img_1_ser, "2": img_2_ser}
                     }
                 else:
                     index = list(np.where(np.array(maximum) > th)[0])
@@ -107,6 +113,7 @@ def upload():
                             "message": "敏感人物",
                             "result": "不合规",
                             "data": data,
+                            # "img":  {"size": list(np.shape(img)), "0": img_0_ser, "1": img_1_ser, "2": img_2_ser},
                             "det_arr": det_arr_ser.tolist()
                     }
     return json.dumps(ret)
@@ -121,13 +128,13 @@ def cal_sim_new(emb, emb_data):
     return likely
 
 
-def cal_sim(emb, emb_data):
-    people = ['xijinping_baidu', 'hujintao_baidu', 'jiangzemin_baidu', 'dengxiaoping_baidu', 'wenjiabao_baidu', 'maozedong_baidu', 'zhouenlai_baidu']
-    emb_jack = emb
-    likely = {}
-    for i in people:
-        likely[i] = feat_distance_cosine(emb_jack, emb_data[i])  # pro type is:  <class 'numpy.float64'>
-    return likely
+# def cal_sim(emb, emb_data):
+#     people = ['xijinping_baidu', 'hujintao_baidu', 'jiangzemin_baidu', 'dengxiaoping_baidu', 'wenjiabao_baidu', 'maozedong_baidu', 'zhouenlai_baidu']
+#     emb_jack = emb
+#     likely = {}
+#     for i in people:
+#         likely[i] = feat_distance_cosine(emb_jack, emb_data[i])  # pro type is:  <class 'numpy.float64'>
+#     return likely
 
 
 def feat_distance_cosine(feat1, feat2):

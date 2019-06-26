@@ -37,7 +37,8 @@ def upload():
         f = request.files['file']  # 301 file error
         cont = f.read()
         buf = np.frombuffer(cont, dtype=np.byte)
-        # img = np.expand_dims(cv2.resize(cv2.imdecode(buf, cv2.IMREAD_COLOR),(160,160), interpolation=cv2.INTER_AREA), axis=0)
+
+        # print('buf {} and buf size {}'.format(buf, np.shape(buf)))
         img = np.expand_dims(cv2.imdecode(buf, cv2.IMREAD_COLOR), axis=0)
         print('input image shape ', np.shape(img))
         emb = faceNet_serving_V0.img_to_emb_feature(img, FACENET_CHANNEL)

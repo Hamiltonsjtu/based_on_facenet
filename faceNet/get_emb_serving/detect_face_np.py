@@ -15,7 +15,7 @@ import align.detect_face
 def load_and_align_data(image):
 
     ###  load input image
-    image_size = 182
+    image_size = 160
     margin = 0.15
     gpu_memory_fraction = 1.0
     detect_multiple_faces = True
@@ -31,6 +31,7 @@ def load_and_align_data(image):
         with sess.as_default():
             pnet, rnet, onet = align.detect_face.create_mtcnn(sess, None)
     img_list = []
+    bb_int = []
     bounding_boxes, _ = align.detect_face.detect_face(image, minsize, pnet, rnet, onet, threshold, factor)
     nrof_faces = bounding_boxes.shape[0]
     if nrof_faces > 0:
@@ -99,8 +100,9 @@ def load_and_align_data(image):
 
             scaled = misc.imresize(cropped, (image_size, image_size), interp='bilinear')
             # print('cropped image shape: {}'.format(np.shape(scaled)))
-            prewhitened = facenet.prewhiten(scaled)
-            img_list.append(prewhitened)
+            # prewhitened = facenet.prewhiten(scaled)
+            img_list.append(scaled)
+            bb_int.append(bb_new)
 
         images = np.stack(img_list)
         print('This picture has {} faces'.format(nrof_faces))
@@ -114,4 +116,4 @@ def load_and_align_data(image):
         # print('length of img_list is {}'.format(np.shape(img_list)))
         # print('append cropped images shape is {}'.format(np.shape(images)))
 
-    return images, det_arr
+    return images, det_arr, bb_int
