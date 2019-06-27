@@ -10,8 +10,8 @@ from process import faceNet_serving_V0
 
 # #######-------------image client------------#######
 
-# peoples = ['jiangzemin', 'hujintao', 'xijinping', 'dengxiaoping', 'wenjiabao', 'maozedong', 'zhouenlai']
-peoples = ['xijinping']
+peoples = ['xijinping', 'jiangzemin', 'hujintao', 'dengxiaoping', 'wenjiabao', 'maozedong', 'zhouenlai']
+# peoples = ['xijinping']
 
 result = {}
 
@@ -24,7 +24,7 @@ def img_restore(img_path, returnval, people):
 
         font = cv2.FONT_HERSHEY_SIMPLEX
         img_add = cv2.putText(img, 'No_Face!', (10, 10), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
-        dir = 'E:/test_Re_1/' + people + '/' + 'No_face/'
+        dir = 'E:/test_Re_5/' + people + '/' + 'No_face/'
         if not os.path.exists(dir):
             os.makedirs(dir)
         cv2.imwrite(dir + img_name, img_add)
@@ -40,7 +40,7 @@ def img_restore(img_path, returnval, people):
             img_rec = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (0, 255, 0))
             img_add = cv2.putText(img_rec, 'has Face!', (10, 10), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
 
-            dir = 'E:/test_Re_1/' + people + '/' + 'detect_face_is_passed/'
+            dir = 'E:/test_Re_5/' + people + '/' + 'detect_face_is_passed/'
             if not os.path.exists(dir):
                 os.makedirs(dir)
             cv2.imwrite(dir + file_name + '_' + str(i) + file_extension, img_add)
@@ -55,53 +55,35 @@ def img_restore(img_path, returnval, people):
             bb = np.array(det_arr_slice, dtype=np.int32)
             font = cv2.FONT_HERSHEY_SIMPLEX
             img_rec = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (0, 255, 0))
-            img_add = cv2.putText(img_rec, data[i]['user_name'], (bb[0], bb[3]), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            img_add = cv2.putText(img_rec, data[i]['user_name'][:2] + str(data[i]['score'])[:3], (bb[0], bb[3]), font, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
 
-            dir = 'E:/test_Re_1/' + people + '/' + 'not_passed/' + data[i]['user_name'] + '/'
+            dir = 'E:/test_Re_5/' + people + '/' + 'not_passed/' + data[i]['user_name'] + '/'
             if not os.path.exists(dir):
-                os.makedirs(dir)
+                 os.makedirs(dir)
             cv2.imwrite(dir + file_name + '_' + str(i) + file_extension, img_add)
 
 
-for name in peoples:
+def main():
 
-    image_dir = 'F:/peoples_baidu/' + name + '_baidu'
+    for name in peoples:
 
-    image_pic = os.listdir(image_dir)
-    num_all = 0
-    num_care = 0
-    num_right_people = 0
-    for i in image_pic:
-        img_path = os.path.join(image_dir, i)
+        image_dir = 'F:/peoples_baidu/' + name + '_baidu'
 
-        files = {"file": open(img_path, "rb")}
-        # r = requests.post("http://192.168.1.254:5001/v1/face_censor", files=files)
-        r = requests.post("http://0.0.0.0:5000/upload", files=files)
-        returnval = json.loads(r.text)
-
-
-        # img = np.zeros((returnval['img']['size'][0],returnval['img']['size'][1],3))
-        # for i in range(3):
-        #     img_ = np.reshape(returnval['img'][str(i)], (returnval['img']['size'][0],returnval['img']['size'][1]))
-        #     img[:,:, i] = img_
-        print(returnval)
-        # cv2.imshow('image', img)
-        # cv2.waitKey()
-
-        img_restore(img_path, returnval, name)
-
-        # if returnval['result'] == '不合规':
-        #     num_care += 1
-        #     face_num = len(returnval['data'])
-        #     for j in range(face_num):
-        #         if returnval['data'][j]['user_name'] == name:
-        #             num_right_people += 1
-        # num_all += 1
-
-    result[name] = {'num_care': num_care, 'num_all': num_all, 'precision': num_care/num_all, 'num_right_one':num_right_people, 'accuracy': num_right_people/num_all}
-    # print('num_care: {}, all {} and precision {}'.format(num_care, num_all, num_care/num_all))
-    # print('num of detect the right one is {}, and accuracy is {}'.format(num_right_people, num_right_people/num_all))
+        image_pic = os.listdir(image_dir)
+        num_all = 0
+        num_care = 0
+        num_right_people = 0
+        for i in image_pic:
+            img_path = os.path.join(image_dir, i)
+            files = {"file": open(img_path, "rb")}
+            # r = requests.post("http://192.168.1.254:5001/v1/face_censor", files=files)
+            r = requests.post("http://0.0.0.0:5000/upload", files=files)
+            returnval = json.loads(r.text)
+            print(returnval)
+            img_restore(img_path, returnval, name)
 
 
+if __name__ == '__main__':
+    main()
 
 
