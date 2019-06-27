@@ -23,10 +23,9 @@ FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('facenet', '192.168.1.254:9001', 'PredictionService host:port')
 FACENET_CHANNEL = grpc.insecure_channel(FLAGS.facenet)
 
-
-emb = np.load('embeddings.npy')
-labels_str = np.load('label_strings.npy')
-labels_num = np.load('labels.npy')
+emb = np.load('./20190627_emb_feature_small_3_160/embeddings.npy')
+labels_str = np.load('./20190627_emb_feature_small_3_160/label_strings.npy')
+labels_num = np.load('./20190627_emb_feature_small_3_160/labels.npy')
 
 peoples = list(set(labels_str))
 
@@ -87,9 +86,10 @@ def upload():
                 emb_face = emb[i*128: (1+i)*128]
                 likely = cal_sim_new(emb_face, emb_dict)
                 print('Likely ', likely)
+                # print('Likely_l2', likely_l2 )
                 maximum_name.append(max(likely, key=likely.get))
                 maximum.append(likely[max(likely, key=likely.get)])
-                th = 0.40
+                th = 0.80
 
                 if max(maximum) < th:
                     ret = {
@@ -130,9 +130,7 @@ def cal_sim_new(emb, emb_data):
     likely = {}
     for i in list(emb_data.keys()):
         emb_feature = emb_data[i]['emb_ave']
-        sim = feat_distance_cosine(emb, emb_feature)
-        likely[i] = sim
-        print('{} and its similarity {}'.format(i, sim))
+        likely[i] =  feat_distance_cosine(emb, emb_feature)
     return likely
 
 
