@@ -24,18 +24,28 @@ tf.app.flags.DEFINE_string('facenet', '192.168.1.254:9001', 'PredictionService h
 FACENET_CHANNEL = grpc.insecure_channel(FLAGS.facenet)
 
 
-class_names = np.load('class.npy')
-file_name = np.load('name.npy')
-embs = np.load('embs.npy')
+emb = np.load('embeddings.npy')
+labels_str = np.load('label_strings.npy')
+labels_num = np.load('labels.npy')
 
-cls_names = list(set(class_names))
-data = {}
-data_ave = {}
-for i in cls_names:
-    indice = np.where(class_names == i)[0]
-    data[i] = embs[indice, :]
-    data_ave[i] = np.mean(data[i], axis=0)
-print('data ave size', np.shape(data_ave))
+peoples = list(set(labels_str))
+
+emb_dict = {}
+
+for i in peoples:
+    index = np.where(labels_str == i)[0]
+    emb_ = emb[index, :]
+    emb_ave = np.mean(emb_, axis = 0)
+    emb_dict[i] = {'emb': emb_, 'emb_ave': emb_ave}
+
+# cls_names = list(set(class_names))
+# data = {}
+# data_ave = {}
+# for i in cls_names:
+#     indice = np.where(class_names == i)[0]
+#     data[i] = embs[indice, :]
+#     data_ave[i] = np.mean(data[i], axis=0)
+# print(data)
 
 @app.route('/')
 def hello_world():
@@ -49,9 +59,6 @@ def upload():
         cont = f.read()
         buf = np.frombuffer(cont, dtype=np.byte)
         img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
-        # img_0_ser = np.reshape(img[:,:,0], (1, np.size(img[:,:,0])))[0,:].tolist()
-        # img_1_ser = np.reshape(img[:,:,1], (1, np.size(img[:,:,1])))[0,:].tolist()
-        # img_2_ser = np.reshape(img[:,:,2], (1, np.size(img[:,:,2])))[0,:].tolist()
 
         faces, det_arr, _ = load_and_align_data(img)
         print('file {} have #{} faces'.format(f, len(det_arr)))
@@ -78,7 +85,7 @@ def upload():
             maximum_name = ['test']
             for i in range(num_face):
                 emb_face = emb[i*128: (1+i)*128]
-                likely = cal_sim_new(emb_face, data_ave)
+                likely = cal_sim_new(emb_face, emb_dict)
                 print('Likely ', likely)
                 maximum_name.append(max(likely, key=likely.get))
                 maximum.append(likely[max(likely, key=likely.get)])
@@ -121,10 +128,11 @@ def upload():
 
 def cal_sim_new(emb, emb_data):
     likely = {}
-    for i in emb_data:
-        emb_feature = emb_data[i]
+    for i in list(emb_data.keys()):
+        emb_feature = emb_data[i]['emb_ave']
         sim = feat_distance_cosine(emb, emb_feature)
         likely[i] = sim
+        print('{} and its similarity {}'.format(i, sim))
     return likely
 
 
