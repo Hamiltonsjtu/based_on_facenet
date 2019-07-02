@@ -109,7 +109,7 @@ def upload():
                         "result":  "合规",
                         "user_name": str(value_max_name),
                         "score": str(value_max),
-                        "det_arr": det_arr_ser[i*4:i*4+4].tolist()
+                        "det_arr": det_arr_ser.tolist()
                     }
                 else:
                     index_False = [i for i, x in enumerate(Flag_all) if not x]
