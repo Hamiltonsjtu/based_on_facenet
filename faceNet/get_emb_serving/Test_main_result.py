@@ -59,9 +59,9 @@ def upload():
         buf = np.frombuffer(cont, dtype=np.byte)
         img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
 
-        faces, det_arr, _ = load_and_align_data(img)
+        faces, _, det_arr= load_and_align_data(img)
         print('file {} have #{} faces'.format(f, len(det_arr)))
-
+        print('================================================')
 
         if faces is None:
             print('No Faces in this image!')
@@ -77,12 +77,12 @@ def upload():
             emb = faceNet_serving_V0.img_to_emb_feature(faces, FACENET_CHANNEL)
             emb = list(emb)
             num_face = int(len(emb)/128)
-            ret = {}
+
+            data = []
 
             for i in range(num_face):
                 emb_face = emb[i*128: (1+i)*128]
                 likely = cal_sim_new(emb_face, emb_dict)
-
                 theta = {'xijinping': [0.7],
                          'hujintao': [0.73],
                          'jiangzemin': [0.72],
@@ -91,22 +91,25 @@ def upload():
                          'maozedong': [0.83],
                          'zhouenlai': [0.83]}
                 diff_name = list([i for i, _ in theta.items()])
-
                 value = []
                 for name in diff_name:
                     theta[name].append(likely[name])
                     value.append(theta[name])
                 value = np.squeeze(value)
-
                 Flag_all = listsbigger(value[:,0], value[:,1])
-
+                print('theta dictionary', theta)
                 if all(Flag_all):
-                    ret = {
+                    value_max = np.max(value[:,1])
+                    value_max_indice = np.argmax(value[:,1])
+                    value_max_name = diff_name[value_max_indice]
+                    ret_pass = {
                         "file": f.filename,
                         "code": 300,
                         "message": "Has_face_pass",
                         "result":  "合规",
-                        "det_arr": det_arr_ser.tolist()
+                        "user_name": str(value_max_name),
+                        "score": str(value_max),
+                        "det_arr": det_arr_ser[i*4:i*4+4].tolist()
                     }
                 else:
                     index_False = [i for i, x in enumerate(Flag_all) if not x]
@@ -115,26 +118,19 @@ def upload():
                     delta_score_max_indice = np.argmax(delta_score)
                     max_term = max_term_tmp[delta_score_max_indice, 1]
                     print('max_term', max_term)
-                    # index_position = np.argmax(value[index_False, 1])
-                    # print('index_position {} and type {}'.format(index_position, type(index_position)))
-                    # max_name_index = index_False[index_position]
-                    # print(max_name_index)
-
-                    # max_term = max_term_tmp[:,1]
                     max_name_tmp = [diff_name[i] for i in index_False]
                     max_name = max_name_tmp[delta_score_max_indice]
                     print('max_name {} and its value {}'.format(max_name, max_term))
                     det_arr_tmp = np.array(det_arr)[i, :]
                     det_arr_ser = np.reshape(det_arr_tmp, (1, np.size(det_arr_tmp)))
 
-                    data = []
                     data.append({
                             "face_id": str(i),
                             "user_name": str(max_name),
                             "score": str(max_term)
                         })
 
-                    ret = {
+                    ret_not_pass = {
                             "file": f.filename,
                             "code": 301,
                             "message": "敏感人物",
@@ -142,6 +138,13 @@ def upload():
                             "data": data,
                             "det_arr": det_arr_ser.tolist()
                     }
+
+            if not bool(ret_not_pass):
+                ret = ret_pass
+            else:
+                ret = ret_not_pass
+
+            print('output dictionary', ret)
 
     return json.dumps(ret)
 
@@ -161,7 +164,7 @@ def cal_sim_new(emb, emb_data):
     likely = {}
     for i in list(emb_data.keys()):
         emb_feature = emb_data[i]['emb_ave']
-        likely[i] =  feat_distance_cosine(emb, emb_feature)
+        likely[i] = feat_distance_cosine(emb, emb_feature)
     return likely
 
 
