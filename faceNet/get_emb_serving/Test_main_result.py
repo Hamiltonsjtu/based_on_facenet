@@ -13,7 +13,7 @@ import cv2
 import numpy as np
 import operator
 import grpc
-
+import yaml
 
 app = Flask(__name__)
 app.config['ALLOWED_EXTENSIONS'] = set(['png', 'jpg', 'jpeg'])
@@ -121,7 +121,8 @@ def upload():
                     # print(max_name_index)
 
                     # max_term = max_term_tmp[:,1]
-                    max_name = [diff_name[i] for i in index_False]
+                    max_name_tmp = [diff_name[i] for i in index_False]
+                    max_name = max_name_tmp[delta_score_max_indice]
                     print('max_name {} and its value {}'.format(max_name, max_term))
                     det_arr_tmp = np.array(det_arr)[i, :]
                     det_arr_ser = np.reshape(det_arr_tmp, (1, np.size(det_arr_tmp)))
