@@ -12,17 +12,8 @@ from process import faceNet_serving_V0
 
 peoples = ['xijinping', 'jiangzemin', 'hujintao', 'dengxiaoping', 'wenjiabao', 'maozedong', 'zhouenlai']
 # peoples = ['xijinping']
-RESULT_NUM_att = ['Not_detect', 'Detect_Pass', 'Not_Pass']
 
 result = {}
-for i in peoples:
-    result[i] = {}
-    for j in RESULT_NUM_att[0:-1]:
-        result[i][j] = 0
-    data_sub = {}
-    for k in peoples:
-        data_sub[k] = []
-    result[i][RESULT_NUM_att[-1]] = data_sub
 
 
 def img_restore(img_path, returnval, people):
@@ -30,13 +21,14 @@ def img_restore(img_path, returnval, people):
     img_head, img_name = os.path.split(img_path)
     file_name, file_extension = os.path.splitext(img_name)
     if returnval['message'] == 'Has_no_faces':
+
         font = cv2.FONT_HERSHEY_SIMPLEX
         img_add = cv2.putText(img, 'No_Face!', (10, 10), font, 4, (255, 255, 255), 2, cv2.LINE_AA)
-        dir = 'E:/test_Re_diffthred/' + people + '/' + 'No_face/'
+        dir = 'E:/test_Re_5/' + people + '/' + 'No_face/'
         if not os.path.exists(dir):
             os.makedirs(dir)
         cv2.imwrite(dir + img_name, img_add)
-        result[people]['Not_detect'] += 1
+
     elif returnval['message'] == 'Has_face_pass':
         det_arr_ = returnval['det_arr'][0]
         num_face = len(det_arr_)//4
@@ -47,11 +39,12 @@ def img_restore(img_path, returnval, people):
             font = cv2.FONT_HERSHEY_SIMPLEX
             img_rec = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (0, 255, 0))
             img_add = cv2.putText(img_rec, 'has Face!', (10, 10), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
-            dir = 'E:/test_Re_diffthred/' + people + '/' + 'detect_face_is_passed/'
+
+            dir = 'E:/test_Re_5/' + people + '/' + 'detect_face_is_passed/'
             if not os.path.exists(dir):
                 os.makedirs(dir)
             cv2.imwrite(dir + file_name + '_' + str(i) + file_extension, img_add)
-            result[people]['Detect_Pass'] += 1
+
     else:
         det_arr_ = returnval['det_arr'][0]
         num_face = len(det_arr_)//4
@@ -63,13 +56,12 @@ def img_restore(img_path, returnval, people):
             font = cv2.FONT_HERSHEY_SIMPLEX
             img_rec = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (0, 255, 0))
             img_add = cv2.putText(img_rec, data[i]['user_name'][:2] + str(data[i]['score'])[:3], (bb[0], bb[3]), font, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
-            dir = 'E:/test_Re_diffthred/' + people + '/' + 'not_passed/' + data[i]['user_name'] + '/'
+
+            dir = 'E:/test_Re_5/' + people + '/' + 'not_passed/' + data[i]['user_name'] + '/'
             if not os.path.exists(dir):
                  os.makedirs(dir)
             cv2.imwrite(dir + file_name + '_' + str(i) + file_extension, img_add)
-            result[people]['Not_Pass'][data[i]['user_name']].append(data[i]['score'])
 
-    np.save('Accuracy_Precision' + 'diffthred' + '.npy', result)
 
 def main():
 
@@ -78,7 +70,9 @@ def main():
         image_dir = 'F:/peoples_baidu/' + name + '_baidu'
 
         image_pic = os.listdir(image_dir)
-
+        num_all = 0
+        num_care = 0
+        num_right_people = 0
         for i in image_pic:
             img_path = os.path.join(image_dir, i)
             files = {"file": open(img_path, "rb")}
@@ -86,7 +80,7 @@ def main():
             r = requests.post("http://0.0.0.0:5000/upload", files=files)
             returnval = json.loads(r.text)
             print(returnval)
-            # img_restore(img_path, returnval, name)
+            img_restore(img_path, returnval, name)
 
 
 if __name__ == '__main__':

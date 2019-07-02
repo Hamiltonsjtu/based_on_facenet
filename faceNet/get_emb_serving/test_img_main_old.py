@@ -61,8 +61,6 @@ def upload():
 
         faces, det_arr, _ = load_and_align_data(img)
         print('file {} have #{} faces'.format(f, len(det_arr)))
-
-
         if faces is None:
             print('No Faces in this image!')
             ret = {
@@ -70,68 +68,51 @@ def upload():
                 "code": 200,
                 "message": "Has_no_faces",
                 "result": "合规"
+                # "img": {"size": list(np.shape(img)),"0": img_0_ser, "1": img_1_ser, "2": img_2_ser}
             }
         else:
             det_arr_ser = np.reshape(det_arr, (1, np.size(det_arr)))
             print('input face shape ', np.shape(faces))
+
             emb = faceNet_serving_V0.img_to_emb_feature(faces, FACENET_CHANNEL)
+
+            print('emb size', len(emb))
             emb = list(emb)
             num_face = int(len(emb)/128)
             ret = {}
-
+            maximum = []
+            maximum_name = ['test']
             for i in range(num_face):
                 emb_face = emb[i*128: (1+i)*128]
                 likely = cal_sim_new(emb_face, emb_dict)
+                print('Likely ', likely)
+                # print('Likely_l2', likely_l2 )
+                maximum_name.append(max(likely, key=likely.get))
+                maximum.append(likely[max(likely, key=likely.get)])
+                th = 0.80
 
-                theta = {'xijinping': [0.7],
-                         'hujintao': [0.73],
-                         'jiangzemin': [0.72],
-                         'dengxiaoping': [0.75],
-                         'wenjiabao': [0.7],
-                         'maozedong': [0.83],
-                         'zhouenlai': [0.83]}
-                diff_name = list([i for i, _ in theta.items()])
-
-                value = []
-                for name in diff_name:
-                    theta[name].append(likely[name])
-                    value.append(theta[name])
-                value = np.squeeze(value)
-
-                Flag_all = listsbigger(value[:,0], value[:,1])
-
-                if all(Flag_all):
+                if max(maximum) < th:
                     ret = {
                         "file": f.filename,
                         "code": 300,
                         "message": "Has_face_pass",
                         "result":  "合规",
                         "det_arr": det_arr_ser.tolist()
+                        # "img":  {"size": list(np.shape(img)), "0": img_0_ser, "1": img_1_ser, "2": img_2_ser}
                     }
                 else:
-                    index_False = [i for i, x in enumerate(Flag_all) if not x]
-                    max_term_tmp = value[index_False, :]
-                    delta_score = max_term_tmp[:, 1] - max_term_tmp[:, 0]
-                    delta_score_max_indice = np.argmax(delta_score)
-                    max_term = max_term_tmp[delta_score_max_indice, 1]
-                    print('max_term', max_term)
-                    # index_position = np.argmax(value[index_False, 1])
-                    # print('index_position {} and type {}'.format(index_position, type(index_position)))
-                    # max_name_index = index_False[index_position]
-                    # print(max_name_index)
-
-                    # max_term = max_term_tmp[:,1]
-                    max_name = [diff_name[i] for i in index_False]
-                    print('max_name {} and its value {}'.format(max_name, max_term))
-                    det_arr_tmp = np.array(det_arr)[i, :]
+                    index = list(np.where(np.array(maximum) > th)[0])
+                    det_arr_tmp = np.array(det_arr)[index, :]
                     det_arr_ser = np.reshape(det_arr_tmp, (1, np.size(det_arr_tmp)))
 
                     data = []
-                    data.append({
-                            "face_id": str(i),
-                            "user_name": str(max_name),
-                            "score": str(max_term)
-                        })
+                    for ii in index:
+                        data.append(
+                            {
+                                "face_id": str(ii),
+                                "user_name": maximum_name[ii+1],
+                                "score": maximum[ii]
+                            })
 
                     ret = {
                             "file": f.filename,
@@ -139,21 +120,10 @@ def upload():
                             "message": "敏感人物",
                             "result": "不合规",
                             "data": data,
+                            # "img":  {"size": list(np.shape(img)), "0": img_0_ser, "1": img_1_ser, "2": img_2_ser},
                             "det_arr": det_arr_ser.tolist()
                     }
-
     return json.dumps(ret)
-
-
-def listsbigger(list_1, list_2):
-    result = []
-    if len(list_1) == len(list_2):
-        for i in range(len(list_1)):
-            if list_1[i] < list_2[i]:
-                result.append(False)
-            else:
-                result.append(True)
-    return result
 
 
 def cal_sim_new(emb, emb_data):
