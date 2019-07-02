@@ -77,7 +77,7 @@ def upload():
             emb = faceNet_serving_V0.img_to_emb_feature(faces, FACENET_CHANNEL)
             emb = list(emb)
             num_face = int(len(emb)/128)
-
+            ret_not_pass = {}
             data = []
 
             for i in range(num_face):
@@ -127,8 +127,9 @@ def upload():
                     data.append({
                             "face_id": str(i),
                             "user_name": str(max_name),
-                            "score": str(max_term)
-                        })
+                            "score": str(max_term),
+                            "det_arr": det_arr_ser.tolist()
+                    })
 
                     ret_not_pass = {
                             "file": f.filename,
@@ -136,7 +137,6 @@ def upload():
                             "message": "敏感人物",
                             "result": "不合规",
                             "data": data,
-                            "det_arr": det_arr_ser.tolist()
                     }
 
             if not bool(ret_not_pass):

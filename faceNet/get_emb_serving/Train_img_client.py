@@ -15,7 +15,8 @@ class_names = []
 file_names = []
 embs = []
 
-image_dir = 'F:/baidu_crop_wihten_160/'
+# image_dir = 'F:/baidu_crop_wihten_160/'
+image_dir = 'F:/baidu_crop_wihten_small_160'
 
 path_exp = os.path.expanduser(image_dir)
 print('path expanduser is {}'.format(path_exp))

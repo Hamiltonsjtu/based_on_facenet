@@ -34,22 +34,18 @@ def to_rgb(img):
 
 
 def main():
-    train_data_dir = 'F:/baidu_crop'
+    train_data_dir = 'F:/baidu_crop_06271503'
     folders = os.listdir(train_data_dir)
     for i in folders:
         for j in os.listdir(os.path.join(train_data_dir, i)):
             img_path = train_data_dir + '/' + i + '/' + j
             images = load_data(img_path, 182)
-            dst_img_dir = train_data_dir + '_wihten_160/' + i
+            dst_img_dir = train_data_dir + '_160/' + i
             if not os.path.exists(dst_img_dir):
                 os.makedirs(dst_img_dir)
             dst_img_path = dst_img_dir + '/' + j
 
             misc.imsave(dst_img_path, images)
-            # cv2.imwrite(dst_img_path, images.convertTo(images, CV_8UC3, 255.0))
-            # cv2.imshow('prewihten', images)
-            # cv2.waitKey()
-
 
 if __name__ == '__main__':
     main()

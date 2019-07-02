@@ -100,8 +100,8 @@ def load_and_align_data(image):
 
             scaled = misc.imresize(cropped, (image_size, image_size), interp='bilinear')
             # print('cropped image shape: {}'.format(np.shape(scaled)))
-            # prewhitened = facenet.prewhiten(scaled)
-            img_list.append(scaled)
+            prewhitened = facenet.prewhiten(scaled)
+            img_list.append(prewhitened)
             bb_int.append(bb_new)
 
         images = np.stack(img_list)
@@ -110,6 +110,7 @@ def load_and_align_data(image):
     else:
         images = None
         det_arr = []
+        bb_int = []
         # image_tmp = cv2.cvtColor(img_and_crop, cv2.COLOR_BGR2RGB)
         # cv2.imshow('img_crp', image_tmp)
         # cv2.waitKey()
