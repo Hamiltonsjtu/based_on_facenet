@@ -46,47 +46,56 @@ def img_restore(img_path, returnval, people):
             bb = np.array(det_arr_slice, dtype=np.int32)
             font = cv2.FONT_HERSHEY_SIMPLEX
             img_rec = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (0, 255, 0))
-            img_add = cv2.putText(img_rec, 'has Face!', (10, 10), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
+            img_add = cv2.putText(img_rec,  returnval['user_name'][:2] + returnval['score'][:3], (bb[0], bb[3]), font, 0.5, (255, 0, 255), 2, cv2.LINE_AA)
             dir = 'E:/test_Re_diffthred/' + people + '/' + 'detect_face_is_passed/'
             if not os.path.exists(dir):
                 os.makedirs(dir)
             cv2.imwrite(dir + file_name + '_' + str(i) + file_extension, img_add)
             result[people]['Detect_Pass'] += 1
     else:
-        det_arr_ = returnval['det_arr'][0]
-        num_face = len(det_arr_)//4
-        det_arr = np.reshape(det_arr_, (num_face, 4))
-        data = returnval['data']
-        for i in range(np.shape(det_arr)[0]):
-            det_arr_slice = det_arr[i,:]
+        # det_arr_ = returnval['det_arr'][0]
+        # num_face = len(det_arr_)//4
+        # det_arr = np.reshape(det_arr_, (num_face, 4))
+        # data = returnval['data']
+        for i in range(len(returnval['data'])):
+            det_arr_slice = returnval['data'][i]['det_arr']
             bb = np.array(det_arr_slice, dtype=np.int32)
             font = cv2.FONT_HERSHEY_SIMPLEX
             img_rec = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (0, 255, 0))
-            img_add = cv2.putText(img_rec, data[i]['user_name'][:2] + str(data[i]['score'])[:3], (bb[0], bb[3]), font, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
-            dir = 'E:/test_Re_diffthred/' + people + '/' + 'not_passed/' + data[i]['user_name'] + '/'
+            img_add = cv2.putText(img_rec, returnval['data'][i]['user_name'][:2] + str(returnval['data'][i]['score'])[:3], (bb[0], bb[3]), font, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
+            dir = 'E:/test_Re_diffthred/' + people + '/' + 'not_passed/' + returnval['data'][i]['user_name'] + '/'
             if not os.path.exists(dir):
                  os.makedirs(dir)
             cv2.imwrite(dir + file_name + '_' + str(i) + file_extension, img_add)
-            result[people]['Not_Pass'][data[i]['user_name']].append(data[i]['score'])
+            result[people]['Not_Pass'][returnval['data'][i]['user_name']].append(returnval['data'][i]['score'])
 
     np.save('Accuracy_Precision' + 'diffthred' + '.npy', result)
 
 def main():
 
-    for name in peoples:
+    # for name in peoples:
+    #     image_dir = 'F:/peoples_baidu/' + name + '_baidu'
+    #     image_pic = os.listdir(image_dir)
+    #     for i in image_pic:
+    #         img_path = os.path.join(image_dir, i)
+    #         files = {"file": open(img_path, "rb")}
+    #         # r = requests.post("http://192.168.1.254:5001/v1/face_censor", files=files)
+    #         r = requests.post("http://0.0.0.0:5000/upload", files=files)
+    #         returnval = json.loads(r.text)
+    #         print(returnval)
+    #         img_restore(img_path, returnval, name)
 
-        image_dir = 'F:/peoples_baidu/' + name + '_baidu'
-
-        image_pic = os.listdir(image_dir)
-
-        for i in image_pic:
-            img_path = os.path.join(image_dir, i)
-            files = {"file": open(img_path, "rb")}
-            # r = requests.post("http://192.168.1.254:5001/v1/face_censor", files=files)
-            r = requests.post("http://0.0.0.0:5000/upload", files=files)
-            returnval = json.loads(r.text)
-            print(returnval)
-            # img_restore(img_path, returnval, name)
+    image_dir = 'F:/test/test_xijinping'
+    image_pic = os.listdir(image_dir)
+    for i in image_pic:
+        img_path = os.path.join(image_dir, i)
+        files = {"file": open(img_path, "rb")}
+        # r = requests.post("http://192.168.1.254:5001/v1/face_censor", files=files)
+        r = requests.post("http://0.0.0.0:5000/upload", files=files)
+        returnval = json.loads(r.text)
+        print(returnval)
+        # name = 'test'
+        # img_restore(img_path, returnval, name)
 
 
 if __name__ == '__main__':
