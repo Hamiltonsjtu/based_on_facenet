@@ -17,7 +17,7 @@ def main():
         for i in image_pic:
             img_path = os.path.join(image_dir, i)
             files = {"file": open(img_path, "rb")}
-            r = requests.post("http://192.168.1.23:5005/v2", files=files)
+            r = requests.post("http://192.168.1.37:5000/v1/face_censor", files=files)
             #r = requests.post("http://192.168.1.254:5001/v1/face_censor", files=files)
             # r = requests.post("http://0.0.0.0:5000/upload", files=files)
             returnval = json.loads(r.text)
