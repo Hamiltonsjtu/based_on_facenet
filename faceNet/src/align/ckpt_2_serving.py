@@ -9,7 +9,7 @@ from tensorflow.python.platform import gfile
 
 model_version = 1
 
-export_path_base = './MTCNN_serable'
+export_path_base = './MTCNN_severable_zs'
 export_path = export_path_base + '/' + str(model_version)
 
 if tf.gfile.Exists(export_path_base):
@@ -59,7 +59,7 @@ with tf.Session() as sess:
                              'onet_bbox': tensor_info_onet_bbox,
                              'onet_landmark': tensor_info_onet_landmark,
                             },
-                    method_name = tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
+                    method_name = tf.saved_model.signature_constants.REGRESS_METHOD_NAME))
 
     builder.add_meta_graph_and_variables(
             sess, [tf.saved_model.tag_constants.SERVING],
@@ -71,3 +71,6 @@ with tf.Session() as sess:
 
 
 builder.save()
+
+# THE FOLLOW COMMAND CAN HELP TO CHECK DETAILS FOR SAVEDMODEL, RUN IN TERMINAL
+# python D:\Anaconda\envs\facenet\Lib\site-packages\tensorflow\python\tools\saved_model_cli.py show --dir E:\shuai\Face\faceNet\2017_servable\1 --all
