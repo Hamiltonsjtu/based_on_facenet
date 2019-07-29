@@ -13,13 +13,9 @@ logger = flask_logger.get_logger(__name__)
 
 def get_faces_and_predict(img, face_channel, facenet_channel, DATA, filename):
     face_dict = ssd_face_detect_client.get_face_box_update(img, face_channel)
-    # print('===============================')
-    # print(face_dict)
-
     if face_dict['code'] == code_message.face_detect_box_code:
         boxes_img, boxes_size = face_util.crop_ssd_face_img_update(img, face_dict['data'], filename)
         det_arr_ser = np.reshape(boxes_size, (1, np.size(boxes_size)))
-
         ret_dict = {}
         ret = {}
         maximum = []
@@ -36,11 +32,8 @@ def get_faces_and_predict(img, face_channel, facenet_channel, DATA, filename):
                 ret[str(i)] = likely
                 maximum_name.append(max(likely, key=likely.get))
                 maximum.append(likely[max(likely, key=likely.get)])
-
         # threshold for recognition
         threshold_value = 0.80
-
-
         if len(boxes_img) != len(maximum):
             ret_dict['filename'] = filename
             ret_dict['code'] = code_message.facenet_image_grpc_error_code
@@ -126,6 +119,7 @@ def cal_sim_updata(emb, DATA):
     for i in peoples:
         likely[i] = feat_distance_cosine(emb, DATA[i])
     return likely
+
 
 def feat_distance_cosine(feat1, feat2):
     similarity = np.dot(feat1 / np.linalg.norm(feat1, 2), feat2 / np.linalg.norm(feat2, 2))

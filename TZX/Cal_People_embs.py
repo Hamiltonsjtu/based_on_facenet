@@ -29,7 +29,7 @@ from __future__ import print_function
 
 import sys
 import argparse
-sys.path.append("src") # useful for the import of facenet in another folder
+sys.path.append("../faceNet/src") # useful for the import of facenet in another folder
 
 import facenet
 import align.detect_face

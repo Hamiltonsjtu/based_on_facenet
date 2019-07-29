@@ -90,6 +90,7 @@ def shuffle_examples(image_paths, labels):
     image_paths_shuff, labels_shuff = zip(*shuffle_list)
     return image_paths_shuff, labels_shuff
 
+
 def random_rotate_image(image):
     angle = np.random.uniform(low=-10.0, high=10.0)
     return misc.imrotate(image, angle, 'bicubic')
@@ -135,6 +136,7 @@ def create_input_pipeline(input_queue, image_size, nrof_preprocess_threads, batc
         allow_smaller_final_batch=True)
     
     return image_batch, label_batch
+
 
 def get_control_flag(control, field):
     return tf.equal(tf.mod(tf.floor_div(control, field), 2), 1)
@@ -213,6 +215,18 @@ def train(total_loss, global_step, optimizer, learning_rate, moving_average_deca
     return train_op
 
 
+def prewhiten_channel_new(inputs):
+    result = np.zeros_like(inputs)
+    for i in range(np.shape(inputs)[2]):
+        input_channel = inputs[:,:,i]
+        # mean = np.mean(input_channel)
+        std = np.std(input_channel)
+        std_adj = np.maximum(std, 1.0 / np.sqrt(input_channel.size))
+        y = np.multiply(input_channel, 1 / std_adj)
+        result[:,:,i] = y
+    return result
+
+
 def prewhiten(x):
     mean = np.mean(x)
     std = np.std(x)
@@ -221,12 +235,29 @@ def prewhiten(x):
     return y  
 
 
-def zca_whitening(inputs):
-    sigma = np.dot(inputs, inputs.T)/inputs.shape[1]
-    U,S,V = np.linalg.svd(sigma)
-    epsilon = 0.1
-    ZCAMatrix = np.dot(np.dot(U, np.diag(1.0/np.sqrt(np.diag(S) + epsilon))), U.T)
-    return np.dot(ZCAMatrix, inputs)
+def prewhiten_channel(inputs):
+    result = np.zeros_like(inputs)
+    for i in range(np.shape(inputs)[2]):
+        input_channel = inputs[:,:,i]
+        mean = np.mean(input_channel)
+        std = np.std(input_channel)
+        std_adj = np.maximum(std, 1.0 / np.sqrt(input_channel.size))
+        y = np.multiply(np.subtract(input_channel, mean), 1 / std_adj)
+        result[:,:,i] = y
+    return result
+
+
+def zca_whitening(inputs, image_size):
+    result = np.zeros_like(inputs)
+    for i in range(np.shape(inputs)[2]):
+        input_channel = inputs[:,:,i]
+        input_channel_ = np.squeeze(input_channel)
+        sigma = np.dot(input_channel_, input_channel_.T)/image_size
+        U,S,V = np.linalg.svd(sigma)
+        epsilon = 0.01
+        ZCAMatrix =  np.dot(np.dot(U, np.diag(1. / np.sqrt(S + epsilon))), U.T)
+        result[:,:,i] = np.dot(ZCAMatrix, input_channel)
+    return result
 
 
 def crop(image, random_crop, image_size):
@@ -263,6 +294,7 @@ def load_data(image_paths, do_random_crop, do_random_flip, image_size, do_prewhi
             img = prewhiten(img)
         img = crop(img, do_random_crop, image_size)
         img = flip(img, do_random_flip)
+        # img = misc.imresize(img, (image_size, image_size), interp='bilinear')
         images[i,:,:,:] = img
     return images
 

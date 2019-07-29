@@ -10,8 +10,8 @@ from process import faceNet_serving_V0
 
 # #######-------------image client------------#######
 
-peoples = ['jiangzemin', 'hujintao', 'xijinping', 'dengxiaoping', 'wenjiabao', 'maozedong', 'zhouenlai']
-# peoples = ['xijinping']
+# peoples = ['jiangzemin', 'hujintao', 'xijinping', 'dengxiaoping', 'wenjiabao', 'maozedong', 'zhouenlai']
+peoples = ['xijinping']
 
 result = {}
 
@@ -104,6 +104,5 @@ for name in peoples:
     print('num of detect the right one is {}, and accuracy is {}'.format(num_right_people, num_right_people/num_all))
 
 
-np.save('result_without_aligned_V1.npy', result)
 
 

@@ -10,6 +10,48 @@ from logger import code_message
 from logger import flask_logger
 logger = flask_logger.get_logger(__name__)
 
+def img_to_emb_feature_update(img, channel):
+    print('img shape {} and type {}'.format(np.shape(img), type(img)))
+    img = np.array(img)
+    feature_list = []
+    dict_return = {}
+    err_msg = 'resize_face_exception'
+    if img is None:
+        dict_return['code'] = code_message.facenet_images_invalid_error_code
+        dict_return['message'] = err_msg
+        dict_return['data'] = feature_list
+        logger.error("code: %s"%(code_message.facenet_images_invalid_error_code))
+        logger.error("message: %s"%(err_msg))
+        logger.error(err_msg)
+        return dict_return
+    try:
+        stub = prediction_service_pb2_grpc.PredictionServiceStub(channel)
+        request = predict_pb2.PredictRequest()
+
+        request.model_spec.name = 'facenet'
+        request.model_spec.signature_name = 'calculate_embeddings'
+        request.inputs['images'].CopyFrom(
+            tf.contrib.util.make_tensor_proto(img, dtype=tf.float32))
+        request.inputs['phase'].CopyFrom(tf.contrib.util.make_tensor_proto(False))
+        result_tmp = stub.Predict(request, 10.0)  # 10 secs timeout
+        result = result_tmp.outputs['embeddings'].float_val
+        feature_list = list(result)
+        dict_return['code'] = code_message.facenet_predict_success_code
+        dict_return['message'] = err_msg
+        dict_return['data'] = feature_list
+        logger.error("code: %s" % (code_message.facenet_predict_success_message))
+        logger.error("message: %s" % (err_msg))
+        logger.error(err_msg)
+        return dict_return
+    except Exception as e:
+        dict_return['code'] = code_message.facenet_grpc_connect_error_code
+        dict_return['message'] = str(e)
+        dict_return['data'] = feature_list
+        logger.error("code: %s" % (code_message.facenet_grpc_connect_error_code))
+        logger.error("message: %s" % (str(e)))
+        logger.error(err_msg)
+        return dict_return
+
 
 def resize_image(im, resize_W, resize_H):
     try:
@@ -28,7 +70,6 @@ def resize_image(im, resize_W, resize_H):
     except Exception as e:
         logger.error(e)
         return None, str(e)
-
 
 def prewhiten(x):
     mean = np.mean(x)

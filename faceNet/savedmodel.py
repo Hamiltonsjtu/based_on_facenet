@@ -16,7 +16,12 @@ from tensorflow.python.platform import gfile
 model_version = 1
 
 #export_path='/home/zlmo/serving/test'
-export_path_base = '2018_servable'
+export_path_base = './2018_servable'
+
+if tf.gfile.Exists(export_path_base):
+    tf.gfile.DeleteRecursively(export_path_base)
+    tf.gfile.Remove(export_path_base)
+
 export_path = os.path.join(
 tf.compat.as_bytes(export_path_base),
 tf.compat.as_bytes(str(model_version)))

@@ -166,8 +166,6 @@ def get_face_box_update(img, channel):
         # detection_classes = np.array(result.outputs['classes'].float_val)
 
         boxes = np.squeeze(boxes)
-
-
         scores = np.squeeze(scores)
         face_indice_tmp = np.where(scores > threshold_value)
         face_indice = face_indice_tmp[0]

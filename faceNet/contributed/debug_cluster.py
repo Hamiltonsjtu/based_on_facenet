@@ -245,13 +245,13 @@ def load_images_from_folder(folder):
 if __name__ == "__main__":
 
     model = '../2017'
-    # data_dir_input = 'F:/raw_image_web_crop_multi'
-    data_dir_input = 'F:/test_img'
+    data_dir_input = 'F:/raw_image_web_crop_multi'
+    # data_dir_input = 'F:/test_img'
     batch_size = 10
     image_size = 160
     margin = 44
     min_cluster_size = 1
-    cluster_threshold = 0.4
+    cluster_threshold = 0.5
     largest_cluster_only = False
     gpu_memory_fraction = 1.0
 

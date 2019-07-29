@@ -31,11 +31,9 @@ label_map = label_map_util.load_labelmap(PATH_TO_LABELS)
 categories = label_map_util.convert_label_map_to_categories(label_map, max_num_classes=NUM_CLASSES, use_display_name=True)
 category_index = label_map_util.create_category_index(categories)
 
-img_path = '../xi_many.jpg'
+img_path = '../xi_hu.jpg'
 image_tmp = misc.imread(os.path.expanduser(img_path), mode='RGB')
 image = cv2.cvtColor(image_tmp, cv2.COLOR_BGR2RGB)
-
-
 # def random_colors(N, bright=True):
 #     """
 #     Generate random colors.
@@ -47,7 +45,6 @@ image = cv2.cvtColor(image_tmp, cv2.COLOR_BGR2RGB)
 #     colors = list(map(lambda c: colorsys.hsv_to_rgb(*c), hsv))
 #     random.shuffle(colors)
 #     return colors
-
 
 detection_graph = tf.Graph()
 with detection_graph.as_default():

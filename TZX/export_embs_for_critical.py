@@ -110,6 +110,7 @@ def main(args):
                 # Get images for the batch
 
                 images = facenet.load_data(image_list[i*batch_size:n], False, False, args.image_size)
+                print('shapes of images', np.shape(images))
 
                 feed_dict = {images_placeholder: images, phase_train_placeholder:False }
                 # Use the facenet model to calcualte embeddings
@@ -164,10 +165,11 @@ def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction):
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
-    parser.add_argument('model_dir', type=str,
-        help='Directory containing the meta_file and ckpt_file')
-    parser.add_argument('data_dir', type=str,
-        help='Directory containing images. If images are not already aligned and cropped include --is_aligned False.')
+    parser.add_argument('--model_dir', type=str,
+        help='Directory containing the meta_file and ckpt_file', default='../faceNet/2017')
+    parser.add_argument('--data_dir', type=str,
+        help='Directory containing images. If images are not already aligned and cropped include --is_aligned False.',
+                        default='F:/raw_image_web_crop_multi')
     parser.add_argument('--is_aligned', type=str,
         help='Is the data directory already aligned and cropped?', default=True)
     parser.add_argument('--image_size', type=int,
@@ -180,7 +182,7 @@ def parse_arguments(argv):
         default=1.0)
     parser.add_argument('--image_batch', type=int,
         help='Number of images stored in memory at a time. Default 500.',
-        default=500)
+        default=100)
 
     #   numpy file Names
     parser.add_argument('--embeddings_name', type=str,

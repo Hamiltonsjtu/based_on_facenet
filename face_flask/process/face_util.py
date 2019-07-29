@@ -38,6 +38,14 @@ def crop_ssd_face_img(img, bboxes, filename):
     return face_imgs_list
 
 
+def prewhiten(x):
+    mean = np.mean(x)
+    std = np.std(x)
+    std_adj = np.maximum(std, 1.0/np.sqrt(x.size))
+    y = np.multiply(np.subtract(x, mean), 1/std_adj)
+    return y
+
+
 def crop_ssd_face_img_update(img, bboxes, filename):
     ###
     # margin can be given as 0.15
@@ -91,8 +99,9 @@ def crop_ssd_face_img_update(img, bboxes, filename):
         cropped = img[bb_new[1]:bb_new[3], bb_new[0]:bb_new[2], :]
 
         scaled = misc.imresize(cropped, (image_size, image_size), interp='bilinear')
-        # print('cropped image shape: {}'.format(np.shape(scaled)))
-        face_imgs_list.append(scaled)
+        print('cropped image shape: {}'.format(np.shape(scaled)))
+        prewhitened = prewhiten(scaled)
+        face_imgs_list.append(prewhitened)
         bb_new_list.append(bb_new)
 
     return face_imgs_list, bb_new_list

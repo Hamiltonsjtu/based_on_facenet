@@ -1,23 +1,37 @@
 
 from tensorflow_serving.apis import predict_pb2
 from tensorflow_serving.apis import prediction_service_pb2_grpc
-
+import numpy as np
 import tensorflow as tf
 
+def prewhiten(x):
+    mean = np.mean(x)
+    std = np.std(x)
+    std_adj = np.maximum(std, 1.0/np.sqrt(x.size))
+    y = np.multiply(np.subtract(x, mean), 1/std_adj)
+    return y
 
 ###  function to communicate with tensorflow_serving with help of grpc
-def img_to_emb_feature(img, channel):
+def img_to_emb_feature(images, channel):
     # print(img.shape)
+    img = []
+    for i in range(len(images)):
+        img.append(prewhiten(images[i]))
+
+    img = np.stack(img)
     stub = prediction_service_pb2_grpc.PredictionServiceStub(channel)
     request = predict_pb2.PredictRequest()
 
     request.model_spec.name = 'facenet'
     request.model_spec.signature_name = 'calculate_embeddings'
+    # print('request ', request)
     request.inputs['images'].CopyFrom(
         tf.contrib.util.make_tensor_proto(img, dtype=tf.float32))
     request.inputs['phase'].CopyFrom(tf.contrib.util.make_tensor_proto(False))
-    result_tmp = stub.Predict(request, 10.0)  # 10 secs timeout
+    # print('========================')
+    result_tmp = stub.Predict(request, 15.0)  # 10 secs timeout
     # print(result_tmp)
+
     result = result_tmp.outputs['embeddings'].float_val
     # request.model_spec.name = 'facenet'
     # request.model_spec.signature_name = tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY

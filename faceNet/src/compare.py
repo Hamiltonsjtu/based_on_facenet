@@ -35,12 +35,13 @@ import copy
 import argparse
 import time
 import math
-
+import cv2
 sys.path.append("src") # useful for the import of facenet in another folder
 import facenet
 import align.detect_face
 
 def main(args):
+    images = load_and_align_data(args.image_files[0], args.image_size, args.margin, args.gpu_memory_fraction)
 
     with tf.Graph().as_default():
 
@@ -55,13 +56,12 @@ def main(args):
             embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
             phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
             ########################################################################
-            images = load_and_align_data(args.image_files[0], args.image_size, args.margin, args.gpu_memory_fraction)
             # Run forward pass to calculate embeddings
             feed_dict = {images_placeholder: images, phase_train_placeholder:False}
             emb = sess.run(embeddings, feed_dict=feed_dict)
             
             nrof_images = np.shape(emb)[0]
-
+            dist_matrix = np.zeros((nrof_images,nrof_images))
             # print('emb is {}'.format(emb))
             # print('feature embedding shape is {}'.format(np.shape(emb)))
 
@@ -81,31 +81,35 @@ def main(args):
                 for j in range(nrof_images):
                     # norm_i = np.linalg.norm(emb[i,:])
                     # norm_j = np.linalg.norm(emb[j, :])
-
+                    #
                     norm_i_l2 = np.sqrt(np.sum([pow(emb[i,kk],2) for kk in range(len(emb[i,:]))]))
                     norm_j_l2 = np.sqrt(np.sum([pow(emb[j,kk],2) for kk in range(len(emb[j,:]))]))
                     emb_i_norm = emb[i,:]/norm_i_l2
                     emb_j_norm = emb[j,:]/norm_j_l2
-                    dot_ij = np.sum([emb_i_norm[kk]*emb_j_norm[kk] for kk in range(len(emb_j_norm))])
-                    sim = dot_ij
-                    dist_cos = np.arccos(sim)/math.pi
-                    dist = np.sqrt(np.sum(np.square(np.subtract(emb_i_norm, emb_j_norm))))
+
+                    # dot_ij = np.sum([emb_i_norm[kk]*emb_j_norm[kk] for kk in range(len(emb_j_norm))])
+                    # sim = dot_ij
+                    dist_cos = feat_distance_cosine(emb[i,:], emb[j,:])
+                    # np.sqrt(np.sum(np.square(np.subtract(emb[i, :], emb[j, :]))))
+                    dist = np.sqrt(np.sum(np.square(np.subtract(emb[i,:], emb[j,:]))))
+                    dist_matrix[i,j] = dist
                     print('  {:1.4f}-{:1.4f}  '.format(dist, dist_cos), end='')
                 print('')
             
             
 def load_and_align_data(image_paths_input, image_size, margin, gpu_memory_fraction):
     image_paths = os.listdir(image_paths_input)
-    minsize = 20 # minimum size of face
-    threshold = [ 0.6, 0.7, 0.7 ]  # three steps's threshold
-    factor = 0.709 # scale factor
+
+    # minsize = 20 # minimum size of face
+    # threshold = [ 0.6, 0.7, 0.7 ]  # three steps's threshold
+    # factor = 0.709 # scale factor
     #
-    print('Creating networks and loading parameters')
-    with tf.Graph().as_default():
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gpu_memory_fraction)
-        sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=False))
-        with sess.as_default():
-            pnet, rnet, onet = align.detect_face.create_mtcnn(sess, None)
+    # print('Creating networks and loading parameters')
+    # with tf.Graph().as_default():
+    #     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gpu_memory_fraction)
+    #     sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=False))
+    #     with sess.as_default():
+    #         pnet, rnet, onet = align.detect_face.create_mtcnn(sess, None)
 
     tmp_image_paths=copy.copy(image_paths)
     img_list = []
@@ -114,6 +118,7 @@ def load_and_align_data(image_paths_input, image_size, margin, gpu_memory_fracti
         img = misc.imread(os.path.expanduser(imag_path), mode='RGB')
         img_size = np.asarray(img.shape)[0:2]
         bounding_boxes, _ = align.detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold, factor)
+
         if len(bounding_boxes) < 1:
           image_paths.remove(image)
           print("can't detect face, remove ", image)
@@ -128,9 +133,28 @@ def load_and_align_data(image_paths_input, image_size, margin, gpu_memory_fracti
         aligned = misc.imresize(img, (image_size, image_size), interp='bilinear')
         prewhitened = facenet.prewhiten(aligned)
         img_list.append(prewhitened)
+
+        ## show re-detect faces
+        # img_and_crop = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]),
+        #                                  (0, 255, 0))
+        # image_tmp = cv2.cvtColor(img_and_crop, cv2.COLOR_BGR2RGB)
+        # cv2.imshow('img_prewhitened', prewhitened)
+        # cv2.waitKey()
+
     images = np.stack(img_list)
     return images
 
+
+def feat_distance_cosine(feat1, feat2):
+    similarity = np.dot(feat1 / np.linalg.norm(feat1, 2), feat2 / np.linalg.norm(feat2, 2))
+    return similarity
+
+
+def feat_distance_l2(feat1, feat2):
+    feat1_norm = feat1 / np.linalg.norm(feat1, 2)
+    feat2_norm = feat2 / np.linalg.norm(feat2, 2)
+    similarity = 1.0 - np.linalg.norm(feat1_norm - feat2_norm, 2) / 2.0
+    return similarity
 
 def parse_arguments(argv):
 

@@ -10,8 +10,11 @@ from process import faceNet_serving_V0
 
 # #######-------------image client------------#######
 
-peoples = ['xijinping', 'jiangzemin', 'hujintao', 'dengxiaoping', 'wenjiabao', 'maozedong', 'zhouenlai']
-# peoples = ['xijinping']
+# peoples = ['notrelated','mingxing', 'mingxing_2']
+           # 'xijinping', 'jiangzemin', 'hujintao', 'dengxiaoping', 'wenjiabao', 'maozedong', 'zhouenlai']
+peoples = ['xijinping']
+# peoples = ['test']
+
 RESULT_NUM_att = ['Not_detect', 'Detect_Pass', 'Not_Pass']
 
 result = {}
@@ -51,13 +54,15 @@ def img_restore(img_path, returnval, people):
         result[people]['Detect_Pass'] += 1
         cv2.imwrite(dir + file_name + file_extension, img)
 
+    elif returnval['message'] == 'encoder_failed':
+        print('#Encoder Failed!')
     else:
         for i in range(len(returnval['data'])):
             det_arr_slice = returnval['data'][i]['det_arr']
             bb = np.squeeze(np.array(det_arr_slice, dtype=np.int32))
             font = cv2.FONT_HERSHEY_SIMPLEX
             img = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (0, 255, 0))
-            img = cv2.putText(img, returnval['data'][i]['user_name'][:2] + str(returnval['data'][i]['score'])[:3], (bb[0], bb[3]), font, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
+            img = cv2.putText(img, returnval['data'][i]['user_name'][:2] + str(returnval['data'][i]['score'])[:5], (bb[0], bb[3]), font, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
 
         dir = 'E:/test_Re_diffthred/' + people + '/' + 'not_passed/' + returnval['data'][i]['user_name'] + '/'
         for i in range(len(returnval['data'])):
@@ -75,16 +80,21 @@ def img_restore(img_path, returnval, people):
 def main():
 
     for name in peoples:
-        image_dir = 'F:/peoples_baidu/' + name + '_baidu'
+        image_dir = 'F:/peoples_baidu_test/' + name
         image_pic = os.listdir(image_dir)
         for i in image_pic:
             img_path = os.path.join(image_dir, i)
+            img = cv2.imread(img_path)
+            print('img shape in client', np.shape(img))
             files = {"file": open(img_path, "rb")}
             # r = requests.post("http://192.168.1.254:5001/v1/face_censor", files=files)
-            r = requests.post("http://0.0.0.0:5000/upload", files=files)
+            # r = requests.post("http://192.168.1.252:8500/upload", files=files)
+            r = requests.post("http://192.168.1.23:5000/upload", files=files)
+            # r = requests.post("http://0.0.0.0:5000/upload", files=files)
             returnval = json.loads(r.text)
+            print(name)
             print(returnval)
-            img_restore(img_path, returnval, name)
+            # img_restore(img_path, returnval, name)
 
     # image_dir = 'F:/test/test_xijinping'
     # image_pic = os.listdir(image_dir)

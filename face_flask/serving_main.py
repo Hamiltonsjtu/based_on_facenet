@@ -28,9 +28,9 @@ FACE_CHANNEL = grpc.insecure_channel('192.168.1.254:9002')
 
 
 # DATA = np.load('people_embs.npy', allow_pickle=True).item()
-emb = np.load('./20190627_emb_feature_small_3_160/embeddings.npy')
-labels_str = np.load('./20190627_emb_feature_small_3_160/label_strings.npy')
-labels_num = np.load('./20190627_emb_feature_small_3_160/labels.npy')
+emb = np.load('./20190627_emb_feature_large_2_160/embeddings.npy')
+labels_str = np.load('./20190627_emb_feature_large_2_160/label_strings.npy')
+labels_num = np.load('./20190627_emb_feature_large_2_160/labels.npy')
 DATA = {}
 
 peoples = list(set(labels_str))
@@ -43,7 +43,7 @@ def hello_world():
     return 'hello world'
 
 
-@app.route('/v1/face_censor', methods=['POST', 'GET'])
+@app.route('/v2', methods=['POST', 'GET'])
 def upload():
     if request.method == 'POST':
         try:
@@ -65,6 +65,6 @@ def upload():
 if __name__ == '__main__':
     #app.run('0.0.0.0', threaded = True)
     http_server = HTTPServer(WSGIContainer(app))
-    http_server.listen(5002)
+    http_server.listen(5005)
     IOLoop.instance().start()
 

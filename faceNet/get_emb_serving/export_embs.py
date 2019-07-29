@@ -31,21 +31,18 @@ for i in range(nrof_classes):
     print('# {} class, name {} '.format(i, class_name))
     for j in os.listdir(facedir):
         img_path = os.path.join(facedir,j)
-        if img_path.endswith('jpg') | img_path.endswith('png') | img_path.endswith('jpeg'):
-            file_name = j
-            files = {"file": open(img_path, "rb")}
-            r = requests.post("http://192.168.1.23:5006/upload", files=files)
-            print('request STATUS ', r.status_code)
-            returnval = json.loads(r.text)
-            class_names.append(class_name)
-            file_names.append(file_name)
-            embs.append(returnval['emb'])
-            print(returnval)
+        file_name = j
+        files = {"file": open(img_path, "rb")}
+        r = requests.post("http://192.168.1.23:5006/upload", files=files)
+        print('request STATUS ', r.status_code)
+        returnval = json.loads(r.text)
+        class_names.append(class_name)
+        file_names.append(file_name)
+        embs.append(returnval['emb'])
+        print(returnval)
 
     print('{} class exported ! '.format(class_name))
 
 np.save('class.npy', class_names)
 np.save('name.npy', file_names)
 np.save('embs.npy', embs)
-
-

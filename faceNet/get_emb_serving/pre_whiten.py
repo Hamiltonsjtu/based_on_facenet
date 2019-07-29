@@ -34,7 +34,9 @@ def to_rgb(img):
 
 
 def main():
-    train_data_dir = 'F:/baidu_crop_06271503'
+    # train_data_dir = 'F:/baidu_crop_06271503'
+    train_data_dir = 'F:/raw_image_web_crop_multi'
+
     folders = os.listdir(train_data_dir)
     for i in folders:
         for j in os.listdir(os.path.join(train_data_dir, i)):

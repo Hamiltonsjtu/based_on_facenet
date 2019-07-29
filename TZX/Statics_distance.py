@@ -11,12 +11,13 @@ import matplotlib.pyplot as plt
 import sys
 import scipy.stats as st
 
-sys.path.append("src") # useful for the import of facenet in another folder
-import align.detect_face
+# sys.path.append("../facenet/src") # useful for the import of facenet in another folder
+# import align.detect_face
 
 from sklearn.cluster import DBSCAN
 from sklearn.mixture import GaussianMixture
 from sklearn.mixture import BayesianGaussianMixture
+DATA = np.load('people_embs.npy').item()
 
 
 def multi(*args):
@@ -57,15 +58,17 @@ def cal_likely(Z_value):
         likely = 1 - st.norm.cdf(-np.abs(Z_value))
     return likely
 
+emb_data = np.load('people_embs.npy').item()
+
 # print(cal_likely(1.554))
 # print(cal_likely(-1.554))
-
+#
 people = ['xijinping', 'hujintao', 'jiangzemin', 'dengxiaoping', 'wenjiabao', 'maozedong', 'zhouenlai']
-attrib = ['emb', 'distance', 'average_emb']
-emb_data = multi(people, attrib, {})
+# attrib = ['emb', 'distance', 'average_emb']
+# emb_data = multi(people, attrib, {})
 for i in people:
-    for j in attrib:
-        emb_data[i][j] = np.loadtxt('data/images_cropped/' + i + '/' + j + '.txt', delimiter=' ')
+    # for j in attrib:
+    #     emb_data[i][j] = np.loadtxt('data/images_cropped/' + i + '/' + j + '.txt', delimiter=' ')
     # print('num of standard images for {} is {}'.format(i, np.shape(emb_data[i]['emb'])))
     emb_data[i]['dist_emb'] = [np.sqrt(np.sum(np.square(np.subtract(k, emb_data[i]['average_emb'])))) for k in emb_data[i]['emb']]
     emb_data[i]['log_dist'] = np.log(emb_data[i]['dist_emb'])
@@ -200,6 +203,7 @@ for i in people:
 #     dist_diff[i] = calculate_distance_emb_diff(emb_data[i]['emb'], emb_data[i]['average_emb'])
 #     print('location \'' + i + '\' is {}'.format(np.where(dist_diff[i] >= np.max(dist_diff[i]))[0]))
 # print(dist_diff['xijinping'])
+
 
 
 for i in people:

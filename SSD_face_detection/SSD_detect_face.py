@@ -50,8 +50,6 @@ def ssd_find_face(img_path):
             # result image with boxes and labels on it.
             # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
             image_np_expanded = np.expand_dims(image, axis=0)
-            # print('===========image expanded shape=============')
-            # print(np.shape(image_np_expanded))
             image_tensor = detection_graph.get_tensor_by_name('image_tensor:0')
             # Each box represents a part of the image where a particular object was detected.
             boxes = detection_graph.get_tensor_by_name('detection_boxes:0')
@@ -70,17 +68,13 @@ def ssd_find_face(img_path):
 
             boxes = np.squeeze(boxes)
             scores = np.squeeze(scores)
-            face_indice_tmp = np.where(scores > 0.2)
+            face_indice_tmp = np.where(scores > 0.5)
             face_indice = face_indice_tmp[0]
-            # print('type of face_indice {} and shape {}'.format(type(face_indice), np.shape(face_indice)))
-            # print(len(face_indice))
-            # print(face_indice)
 
             im_height, im_width = np.shape(image)[0:2]
             boxes_tmp = boxes[face_indice,:]
             for i in face_indice:
-                # print('the {}-th face'.format(i))
-                # print('{} box: {} and score {}'.format(i, boxes[i,:], scores[i]))
+
                 box = boxes[i, :]
                 ymin = box[0]
                 xmin = box[1]

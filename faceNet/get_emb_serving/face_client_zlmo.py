@@ -19,7 +19,7 @@ from beautifultable import BeautifulTable
 # tf.app.flags.DEFINE_string('facenet', '192.168.1.252:8500', 'PredictionService host:port')
 # FACENET_CHANNEL = grpc.insecure_channel(FLAGS.facenet)
 
-image_dir = r'F:\TEST_crop'
+image_dir = r'F:\SSD_cropped\boxilai'
 image_path = [image_dir + '/' + i for i in os.listdir(image_dir)]
 img_LIST = []
 
@@ -31,14 +31,16 @@ def prewhiten(x):
     y = np.multiply(np.subtract(x, mean), 1/std_adj)
     return y
 
-
+paths = []
 for path in image_path:
-    img = misc.imread(os.path.expanduser(path), mode='RGB')
-    aligned = misc.imresize(img, (160, 160), interp='bilinear')
-    # image = np.expand_dims(image, axis=0)
-    prewhitened = prewhiten(aligned)
-    img_LIST.append(prewhitened)
-    images = np.stack(img_LIST)
+    if path.endswith('jpg') | path.endswith('png') | path.endswith('jpeg'):
+        paths.append(path)
+        img = misc.imread(os.path.expanduser(path), mode='RGB')
+        aligned = misc.imresize(img, (160, 160), interp='bilinear')
+        # image = np.expand_dims(image, axis=0)
+        prewhitened = prewhiten(aligned)
+        img_LIST.append(prewhitened)
+        images = np.stack(img_LIST)
 print('image size', np.shape(images))
 
 channel = grpc.insecure_channel('192.168.1.254:9001')
@@ -52,11 +54,8 @@ request.model_spec.signature_name = 'calculate_embeddings'
 request.inputs['images'].CopyFrom(
     tf.contrib.util.make_tensor_proto(images, shape=np.shape(images), dtype=tf.float32))
 request.inputs['phase'].CopyFrom(tf.contrib.util.make_tensor_proto(False))
-
-print('========================')
 result_tmp = stub.Predict(request, 10.0)  # 10 secs timeout
-# results = stub.Predict(request, 10.0)
-# embds = result_tmp.outputs._values['embeddings']
+
 embds = list(result_tmp.outputs['embeddings'].float_val)
 faces_num = len(embds) // 128
 embs = np.zeros((faces_num, 128))
@@ -80,7 +79,9 @@ for i in range(faces_num):
         dist[i,j] = distance(embedding_1, embedding_2)
 
 table = BeautifulTable()
-# table.column_headers = data_keys
+
+table.column_headers = paths
+# table.append_row(os.listdir(image_dir), 0)
 for i in range(faces_num):
     table.append_row(dist[i,:])
 print(table)

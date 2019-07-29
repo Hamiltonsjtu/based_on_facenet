@@ -48,6 +48,8 @@ def upload():
         cont = f.read()
         buf = np.frombuffer(cont, dtype=np.byte)
         img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+
+
         faces, det_arr = load_and_align_data(img)
         print('file {} have #{} faces'.format(f, len(det_arr)))
         if faces is None:

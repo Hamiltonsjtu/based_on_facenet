@@ -11,7 +11,9 @@ import operator
 import grpc
 import pandas as pd
 from process import faceNet_serving_V0
-
+from tornado.wsgi import WSGIContainer
+from tornado.httpserver import HTTPServer
+from tornado.ioloop import  IOLoop
 
 # from tensorflow_serving.apis import predict_pb2
 # from tensorflow_serving.apis import prediction_service_pb2_grpc
@@ -34,11 +36,11 @@ def hello_world():
 @app.route('/upload', methods=['POST', 'GET'])
 def upload():
     if request.method == 'POST':
-        f = request.files['file']  # 301 file error
+        f = request.files['file']
         cont = f.read()
         buf = np.frombuffer(cont, dtype=np.byte)
-
-        # print('buf {} and buf size {}'.format(buf, np.shape(buf)))
+        # print('buf:size is {}:{} '.format(buf, np.shape(buf)))
+        print('buf {} and buf size {}'.format(buf, np.shape(buf)))
         img = np.expand_dims(cv2.imdecode(buf, cv2.IMREAD_COLOR), axis=0)
         print('input image shape ', np.shape(img))
         emb = faceNet_serving_V0.img_to_emb_feature(img, FACENET_CHANNEL)
@@ -48,13 +50,15 @@ def upload():
             "file": f.filename,
             "emb": list(emb)
         }
-        print('return: ', ret)
+        # print('return: ', ret)
 
     return json.dumps(ret)
 
 
 if __name__ == '__main__':
-    app.run('0.0.0.0', threaded = True)
-
+    # app.run('0.0.0.0', threaded = True)
+    http_server = HTTPServer(WSGIContainer(app))
+    http_server.listen(5006)
+    IOLoop.instance().start()
 
 

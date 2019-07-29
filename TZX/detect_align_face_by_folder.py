@@ -22,7 +22,7 @@ import copy
 import argparse
 import scipy.stats as st
 import cv2
-import open_Face
+# import open_Face
 
 # def main(args):
 # print(os.path.splitext(img_path))
@@ -159,8 +159,8 @@ def main(args):
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('input_dir', type=str, help='Directory with unaligned images.')
-    parser.add_argument('output_dir', type=str, help='Directory with aligned face thumbnails.')
+    parser.add_argument('--input_dir', type=str, help='Directory with unaligned images.', default=r'F:\peoples_baidu_test\xijinping')
+    parser.add_argument('--output_dir', type=str, help='Directory with aligned face thumbnails.',default=r'F:\peoples_baidu_test\xijinping_crop')
     parser.add_argument('--image_size', type=int,
                         help='Image size (height, width) in pixels.', default=182)
     parser.add_argument('--margin', type=int,

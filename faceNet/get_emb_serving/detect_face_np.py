@@ -30,9 +30,13 @@ def load_and_align_data(image):
         sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=False))
         with sess.as_default():
             pnet, rnet, onet = align.detect_face.create_mtcnn(sess, None)
+    print('Networks Created and Parameters Loaded!')
+
     img_list = []
     bb_int = []
+    print('image shape: ', np.shape(image))
     bounding_boxes, _ = align.detect_face.detect_face(image, minsize, pnet, rnet, onet, threshold, factor)
+    print('bbox ', bounding_boxes)
     nrof_faces = bounding_boxes.shape[0]
     if nrof_faces > 0:
         det = bounding_boxes[:, 0:4]
@@ -95,7 +99,7 @@ def load_and_align_data(image):
                 [center[0] - adjust_size, center[1] - adjust_size, center[0] + adjust_size, center[1] + adjust_size],
                 dtype=np.int32)
 
-            print('crop window height: {} width: {}'.format(bb_new[3] - bb_new[1], bb_new[2] - bb_new[0]))
+            # print('crop window height: {} width: {}'.format(bb_new[3] - bb_new[1], bb_new[2] - bb_new[0]))
             cropped = image[bb_new[1]:bb_new[3], bb_new[0]:bb_new[2], :]
 
             scaled = misc.imresize(cropped, (image_size, image_size), interp='bilinear')
@@ -105,7 +109,7 @@ def load_and_align_data(image):
             bb_int.append(bb_new)
 
         images = np.stack(img_list)
-        print('This picture has {} faces'.format(nrof_faces))
+        # print('This picture has {} faces'.format(nrof_faces))
 
     else:
         images = None

@@ -16,7 +16,7 @@ from tensorflow.python.platform import gfile
 model_version = 1
 
 #export_path='/home/zlmo/serving/test'
-export_path_base = '2017_serable'
+export_path_base = '2018_serable'
 export_path = os.path.join(
 tf.compat.as_bytes(export_path_base),
 tf.compat.as_bytes(str(model_version)))

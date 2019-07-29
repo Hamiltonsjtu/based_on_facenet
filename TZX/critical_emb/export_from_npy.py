@@ -1,8 +1,8 @@
 import numpy as np
 
-emb = np.load('aligned_embeddings.npy')
-labels_str = np.load('aligned_label_strings.npy')
-labels_num = np.load('aligned_labels.npy')
+emb = np.load('embeddings.npy')
+labels_str = np.load('label_strings.npy')
+labels_num = np.load('labels.npy')
 
 peoples = list(set(labels_str))
 
