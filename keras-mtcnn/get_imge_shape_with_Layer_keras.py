@@ -61,13 +61,13 @@ class _PNET_post(Layer):
         super(_PNET_post, self).__init__(**kwargs)
         self.scales     = 1.0
         self.threshold  = 0.6
-    def tffix(self, mat):
+    def _tffix(self, mat):
         mask1 = mat >= 0
         a_floor = tf.math.floor(mat)
         b_ceil = tf.math.ceil(mat)
         remat = tf.where(mask1, a_floor, b_ceil)
         return tf.cast(remat, dtype=tf.float32)
-    def rec2square(self, rectangles):
+    def _rec2square(self, rectangles):
         w = tf.subtract(tf.gather(rectangles, 2, axis=-1), tf.gather(rectangles, 0, axis=-1))
         h = tf.subtract(tf.gather(rectangles, 3, axis=-1), tf.gather(rectangles, 1, axis=-1))
         l = tf.maximum(w, h)
@@ -78,7 +78,7 @@ class _PNET_post(Layer):
         rec_5 = tf.gather(rectangles,4, axis=-1)
         rectangles = tf.transpose(tf.concat([[rec_1], [rec_2], [rec_3], [rec_4], [rec_5]], axis=0), perm=[1,0])
         return rectangles
-    def cls_bb2rect(self, Cls_pro, Roi):
+    def _cls_bb2rect(self, Cls_pro, Roi):
         scale = self.scales
         width = tf.shape(Cls_pro)[0]
         height = tf.shape(Cls_pro)[1]
@@ -94,28 +94,45 @@ class _PNET_post(Layer):
         boundingbox = tf.cast(tf.slice(thresh_index, [0, 0], [-1, 2]), dtype=tf.float32)
         bb1_tmp = tf.math.scalar_mul(stride, boundingbox)
         bb2_tmp = tf.math.scalar_mul(stride, boundingbox) + 11.0
-        bb1 = self.tffix(bb1_tmp)
-        bb2 = self.tffix(bb2_tmp)
+        bb1 = self._tffix(bb1_tmp)
+        bb2 = self._tffix(bb2_tmp)
         boundingbox = tf.concat([bb1, bb2], -1)
-        dx1 = tf.squeeze(tf.gather_nd(tf.gather(Roi, 0), [thresh_index]))
-        dx2 = tf.squeeze(tf.gather_nd(tf.gather(Roi, 1), [thresh_index]))
-        dx3 = tf.squeeze(tf.gather_nd(tf.gather(Roi, 2), [thresh_index]))
-        dx4 = tf.squeeze(tf.gather_nd(tf.gather(Roi, 3), [thresh_index]))
+        dx1 = tf.gather_nd(tf.gather(Roi, 0), [thresh_index])
+        dx2 = tf.gather_nd(tf.gather(Roi, 1), [thresh_index])
+        dx3 = tf.gather_nd(tf.gather(Roi, 2), [thresh_index])
+        dx4 = tf.gather_nd(tf.gather(Roi, 3), [thresh_index])
         compare = tf.gather(Roi, 0)
         Cls_pro_GA = tf.gather(Cls_pro, [0], axis=2)
-        score = tf.expand_dims(tf.squeeze(tf.gather_nd(Cls_pro_GA, [thresh_index])), axis=1)
-        offset = tf.squeeze(tf.stack([dx1, dx2, dx3, dx4], axis=-1))
-        boundingbox = tf.squeeze(boundingbox + offset * 12.0 * scale)
-        rectangles = tf.concat([boundingbox, score], axis=-1)
-        rectangles = self.rec2square(rectangles)
+        score = tf.gather_nd(Cls_pro_GA, [thresh_index])
+        offset = tf.stack([dx1, dx2, dx3, dx4], axis=-1)
+        boundingbox = boundingbox + offset * 12.0 * scale
+        rectangles = tf.squeeze(tf.concat([boundingbox, score], axis=-1),[0])
+        rectangles = self._rec2square(rectangles)
         return rectangles
+    def _pick_chs(self, rect, wid, heig):
+        pick = []
+        def cond_0(i, rect):
+            aaaa = rect
+            col_num = tf.shape(rect)[0]
+            return i < col_num
+        def body_0(i, rect):
+            i += 1
+            pick.append(rect[i, :])
+            return i, pick
+        # cond_0 = lambda i, rect : i < tf.shape(rect)[0]
+        # body_0 = lambda i, rect : (i+1, pick.append(rect[i, :]))
+        tf.while_loop(cond=cond_0, body=body_0, loop_vars=(0, tf.shape(rect)[0]))
+        pick = tf.stack(pick)
+        return pick
     def post_data_Pnet(self, classifier, bbox_regress, img_shape):
         Cls_pro = tf.transpose(tf.gather(classifier, [1], axis=2), perm=[1, 0, 2])
         Roi = tf.transpose(tf.slice(bbox_regress, [0,0,0], [-1,-1,-1]), perm=[2, 1, 0])
-        rectangles = self.cls_bb2rect(Cls_pro, Roi)
-        img_shp = img_shape + 1.0
-        width = img_shape[0]
-        height = img_shape[1]
+        rectangles = self._cls_bb2rect(Cls_pro, Roi)
+
+        # col_num = tf.shape(rectangles)
+        # width = img_shape[1]
+        # height = img_shape[0]
+        # pick = self._pick_chs(rectangles, width, height)
         # pick = []
         # for i in range(tf.shape[1]):
         #     x1 = tf.cast(tf.maximum(0, rectangles[0][i][0]), dtype=tf.int32)
@@ -126,7 +143,7 @@ class _PNET_post(Layer):
         #
         #     if x2>x1 and y2>y1:
         #         pick = Concatenate(axis=-2)(pred_masks)
-        return rectangles, rectangles, img_shp
+        return rectangles, rectangles, rectangles
 
     def call(self, inputs):
         classifier = inputs[0]
@@ -135,11 +152,6 @@ class _PNET_post(Layer):
         batch_data = (classifier, bbox_regress, img_shape)
         bb1, bb2, bb3 = tf.map_fn(lambda x: self.post_data_Pnet(x[0], x[1], x[2]), batch_data, dtype=(tf.float32, tf.float32, tf.float32))
         return [bb1, bb2, bb3]
-
-    # def compute_output_shape(self, input_shape):
-    #     shape = tf.TensorShape(input_shape).as_list()
-    #     return tf.TensorShape(shape)
-
 def _Pnet(weight_path = 'model12.h5'):
     input_img = Input(shape=[None, None, 3])
     x = Conv2D(10, (3, 3), strides=1, padding='valid', name='conv1')(input_img)
@@ -151,14 +163,12 @@ def _Pnet(weight_path = 'model12.h5'):
     x = PReLU(shared_axes=[1,2],name='PReLU3')(x)
     classifier = Conv2D(2, (1, 1), activation='softmax', name='conv4-1')(x)
     bbox_regress = Conv2D(4, (1, 1), name='conv4-2')(x)
-
     def img_shape(input_img_0):
         return tf.map_fn(lambda xxx: tf.cast(tf.shape(xxx)[0:2], tf.float32), input_img_0)
-
     shape_img = Lambda(lambda xx: img_shape(xx), name= 'img_shape')(input_img)
     ### ----- ADD LAYER  ----  ###
     outs = _PNET_post(name='Pnet_output_post')([classifier, bbox_regress, shape_img])
-    model = Model(inputs = [input_img], outputs = outs)
+    model = Model(inputs=[input_img], outputs=outs)
     ###  LOAD TRAINED WEIGHTS
     model.load_weights(weight_path, by_name=True)
     return model
