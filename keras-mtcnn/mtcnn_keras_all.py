@@ -4,6 +4,7 @@ import cv2
 import matplotlib.pyplot as plt
 import time
 import numpy as np
+import keras as KK
 import keras.backend as K
 from keras.layers import Conv2D, Input, MaxPool2D, Reshape, Activation, Flatten, Dense, Permute, Lambda, concatenate
 from keras.models import Model, Sequential
@@ -238,17 +239,36 @@ class NMS_4_Pnetouts(Layer):
         data_batch = (bb, img)
         Pnet_4_Rnet = tf.map_fn(lambda x: self._crop(x[0], x[1]), data_batch, dtype=(tf.float32))
         return [Pnet_4_Rnet]
-class data4Rnet(Layer):
+class Rnet_out(Layer):
     def __init__(self, **kwargs):
-        super(data4Rnet, self).__init__(**kwargs)
+        super(Rnet_out, self).__init__(**kwargs)
         self.r_net = _Rnet()
     def r_net_predict(self, x):
-        cls_R, scr_R = self.r_net(x)
-        return [cls_R, scr_R]
+        cls_R, bbox_R = self.r_net(x)
+        outs = tf.concat([cls_R, bbox_R], 1)
+        return outs  # outs[0:1] : cls; outs[2:-1] : bbox
     def call(self, inputs):
-        outs = tf.map_fn(lambda x:self.r_net_predict(x), inputs, dtype=tf.float32)
-        return [outs]
-def mainmodel(Pnet_weight_path = 'model12.h5'):
+        outs = tf.map_fn(lambda x:self.r_net_predict(x), inputs, dtype=(tf.float32))
+        return outs
+class out_post_Rnet(Layer):
+    def __init__(self, **kwargs):
+        super(out_post_Rnet, self).__init__(**kwargs)
+        self.threshold = 0.6
+    def filter_face_Rnet(self, cls_pro, rio_pro, rectangles, origin_h, origin_w):
+
+
+        return aaa
+    def call(self, inputs):
+        cls_pro = tf.gather(inputs[0], [0], axis=2)
+        roi_pro = tf.gather(inputs[0], [1], axis=2)
+        rectangles = tf.gather(inputs[0], [2,3,4,5], axis=2)
+        origin_h = inputs[1]
+        origin_w = inputs[2]
+        data_batch = (cls_pro, roi_pro, rectangles)
+        outs = tf.map_fn(lambda x: self.filter_face_Rnet(x[0], x[1], x[2], origin_h, origin_w), data_batch, dtype=(tf.float32))
+        outs = self.filter_face_Rnet
+        return cls_pro
+def mainmodel():
     #### -------------- P-net ------------------####
     img = Input(shape=[None, None, 3])
     scale_0 = Lambda(lambda x: tf.constant([1.0]))(img)
@@ -268,12 +288,13 @@ def mainmodel(Pnet_weight_path = 'model12.h5'):
     outs = concatenate([outs_0, outs_1], axis=1)
     #### -------------- R-net ------------------####
     out_nms = NMS_4_Pnetouts()([outs, img])
-    out_Rnet_0, out_Rnet_1 = data4Rnet()(out_nms)
-    model = Model(inputs=[img], outputs=[out_Rnet_0, out_Rnet_1])
+    out_Rnet = Rnet_out()(out_nms)
+    out_postRnet = out_post_Rnet()([out_Rnet, origin_h, origin_w])
+    model = Model(inputs=[img], outputs=[out_Rnet])
     return model
 
 # Pnet = _Pnet(r'12net.h5')
-Network = mainmodel(r'12net.h5')
+Network = mainmodel()
 # Rnet = _Rnet(r'24net.h5')
 # Onet = _Onet(r'48net.h5')
 def get_layer_output(img, model, layer_name):
