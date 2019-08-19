@@ -142,7 +142,7 @@ class Pnet_post(Layer):
         height = tf.shape(Cls_pro)[1]
         out_side = tf.maximum(width, height)
         in_side = 2 * out_side + 11
-        cond = tf.not_equal(2 * out_side, 11)
+        cond = tf.not_equal(out_side, 1)
         ftrue = tf.cast((in_side - 12) / (out_side - 1), dtype=tf.float32)
         ffals = tf.constant(0.0, dtype=tf.float32)
         stride = tf.cond(cond, lambda: ftrue, lambda: ffals)
@@ -172,7 +172,17 @@ class Pnet_post(Layer):
         x2 = tf.minimum(width_raw, rect_i[2])
         y2 = tf.minimum(height_raw, rect_i[3])
         sc = rect_i[4]
-        return x1, y1, x2, y2, sc
+        def f1(): return x1, y1, x2, y2, sc
+        def f2x(): return x2, y1, x1, y2, sc
+        def f2y(): return x1, y2, x2, y1, sc
+        def f2xy(): return x2, y2, x1, y1, sc
+        cond_x = tf.greater(x1, x2)
+        cond_y = tf.greater(y1, y2)
+        cond_xy = cond_x & cond_y
+        final = tf.cond(cond_x, f2x, f1)
+        final = tf.cond(cond_y, f2y, f1)
+        final = tf.cond(cond_xy, f2xy, f1)
+        return final
     def _pick_chs(self, rect, img):
         img_shape = tf.shape(img)
         height_raw = tf.cast(img_shape[0], tf.float32)
@@ -225,7 +235,8 @@ class NMS_4_Pnetouts(Layer):
     def _crop(self, rects, img):
         rects_int = tf.cast(rects, tf.int32)
         def crop_image(img, crop):
-            img_crop = tf.slice(img, [crop[1], crop[0], 0], [crop[3] - crop[1] + 1, crop[2] - crop[0] + 1, 3] )
+            img_crop = tf.slice(img, [crop[1]-1, crop[0]-1, 0], [crop[3] - crop[1], crop[2] - crop[0], 3] )
+            # img_crop_gather = tf.gather_nd()
             img_crop = tf.image.resize_images(img_crop, (24, 24))
             return img_crop
         cropped_image = tf.map_fn(lambda x: crop_image(img, x), elems=rects_int, dtype=(tf.float32))
@@ -292,6 +303,8 @@ def mainmodel():
     # recommand scales = [1.5, 1.06, 0.75, 0.53, 0.38, 0.27]
     scale_0 = Lambda(lambda x: tf.constant([0.09587285]))(img)
     scale_1 = Lambda(lambda x: tf.constant([0.06797385]))(img)
+    # scale_0 = Lambda(lambda x: tf.constant([1.0]))(img)
+    # scale_1 = Lambda(lambda x: tf.constant([0.709]))(img)
     # scale_2 = Lambda(lambda x: tf.constant([0.5027]))(img)
     # scale_3 = Lambda(lambda x: tf.constant([0.3564]))(img)
     origin_h = Lambda(lambda x: tf.cast(tf.shape(x)[1], tf.float32))(img)
@@ -309,7 +322,7 @@ def mainmodel():
     out_nms, rectangles = NMS_4_Pnetouts()([outs, img])
     # out_Rnet_1, out_Rnet_2 = Rnet_out()([out_nms, out_nms])
     # out_postRnet = out_post_Rnet()([out_Rnet_1, out_Rnet_2, rectangles, origin_h, origin_w])
-    model = Model(inputs=[img], outputs=[out_nms])
+    model = Model(inputs=[img], outputs=[out_nms, rectangles])
     return model
 
 # Pnet = _Pnet(r'12net.h5')
