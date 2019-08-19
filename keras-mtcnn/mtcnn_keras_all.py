@@ -194,6 +194,45 @@ class Pnet_post(Layer):
         width_raw = tf.cast(img_shape[1], tf.float32)
         x1, y1, x2, y2, sc = tf.map_fn(lambda x: self.pick_rect(x, height_raw, width_raw), rect, dtype=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32))
         return tf.stack([x1, y1, x2, y2, sc], axis=1)
+
+    def _NMS_own(self, rectangles, threshold):
+        len_rect = tf.shape(rectangles)[0]
+        # if len(rectangles) == 0:
+        #     return rectangles
+        x1 = tf.gather(rectangles, 0, axis=1)
+        y1 = tf.gather(rectangles, 1, axis=1)
+        x2 = tf.gather(rectangles, 2, axis=1)
+        y2 = tf.gather(rectangles, 3, axis=1)
+        s = tf.gather(rectangles, 4, axis=1)
+        area = tf.multiply(x2 - x1 + 1, y2 - y1 + 1)
+        I = tf.argsort(s)
+        # pick = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True)
+        pick = []
+        def _cond(I, pick):
+            return tf.equal(tf.size(I), 0)
+        def _body(I, pick):
+            I_size = tf.size(I)
+            index_1 = tf.gather(I, [I_size])
+            index_2 = tf.slice(I, [0], [I_size-1])
+            xx1 = tf.maximum(tf.gather(x1, index_1), tf.gather(x1, index_2))
+            yy1 = tf.maximum(tf.gather(y1, index_1), tf.gather(y1, index_2))
+            xx2 = tf.minimum(tf.gather(x2, index_1), tf.gather(x2, index_2))
+            yy2 = tf.minimum(tf.gather(y2, index_1), tf.gather(y2, index_2))
+            w = tf.maximum(0.0, xx2 - xx1 + 1.0)
+            h = tf.maximum(0.0, yy2 - yy1 + 1.0)
+            inter = w * h
+            o = inter / (tf.gather(area, index_1) + tf.gather(area,index_2) - inter)
+            pick.append(index_1)
+            # pick = pick.write(index_1)
+
+            I = tf.gather(I, tf.gather(tf.where(o <= threshold), 1, axis=1))
+            return I, pick
+
+        pick = tf.while_loop(_cond, _body, [I, pick])
+        result_rectangle = rectangles[pick,:]
+        return result_rectangle
+
+
     def _NMS(self, rectangles, iou_threshold, max_output_size):
         boxes = tf.gather(rectangles, [0,1,2,3], axis=1)
         scores = tf.gather(rectangles, 4, axis=1)
@@ -201,19 +240,21 @@ class Pnet_post(Layer):
             boxes, scores, max_output_size, iou_threshold)
         selected = tf.gather(rectangles, selected_indices)
         return selected
-    def _crop(self, img, rects):
-        rects_int = tf.cast(rects, tf.int32)
-        def crop_image(img, crop):
-            img_crop = tf.slice(img, [crop[1], crop[0], 0], [crop[3] - crop[1] + 1, crop[2] - crop[0] + 1, 3] )
-            img_crop = tf.image.resize_images(img_crop, (24, 24))
-            return img_crop
+    # def _crop(self, img, rects):
+    #     rects_int = tf.cast(rects, tf.int32)
+    #     def crop_image(img, crop):
+    #         img_crop = tf.slice(img, [crop[1], crop[0], 0], [crop[3] - crop[1] + 1, crop[2] - crop[0] + 1, 3] )
+    #         img_crop = tf.image.resize_images(img_crop, (24, 24))
+    #         return img_crop
+    #     cropped_img = tf.map_fn(lambda x: crop_image(img, x),rects_int, dtype=(tf.float32))
+    #     return cropped_img
     def post_data_Pnet(self, classifier, bbox_regress, img, scale):
         Cls_pro = tf.transpose(tf.gather(classifier, [1], axis=2), perm=[1, 0, 2])
         Roi = tf.transpose(tf.slice(bbox_regress, [0,0,0], [-1,-1,-1]), perm=[2, 1, 0])
         rectangles = self._cls_bb2rect(Cls_pro, Roi, 1.0/scale)
         pick = self._pick_chs(rectangles, img)
-        Pnet_rect = self._NMS(pick, 0.3, 100)
-        Pnet_4_Rnet = self._crop(img, Pnet_rect)
+        Pnet_rect = self._NMS_own(pick, 0.3)
+        # img_shape = tf.cast(tf.shape(img), tf.float32)
         return Pnet_rect, Pnet_rect, Pnet_rect
     def call(self, inputs):
         classifier = inputs[0]
@@ -221,8 +262,8 @@ class Pnet_post(Layer):
         img = inputs[2]
         scales = inputs[3]
         batch_data = (classifier, bbox_regress, img)
-        bb, _, _ = tf.map_fn(lambda x: self.post_data_Pnet(x[0], x[1], x[2], scales), batch_data, dtype=(tf.float32, tf.float32, tf.float32))
-        return [bb]
+        rects, _, _ = tf.map_fn(lambda x: self.post_data_Pnet(x[0], x[1], x[2], scales), batch_data, dtype=(tf.float32, tf.float32, tf.float32))
+        return [rects]
 class NMS_4_Pnetouts(Layer):
     def __init__(self, **kwargs):
         super(NMS_4_Pnetouts, self).__init__(**kwargs)
@@ -301,10 +342,10 @@ def mainmodel():
     img = Input(shape=[None, None, 3])
 
     # recommand scales = [1.5, 1.06, 0.75, 0.53, 0.38, 0.27]
-    scale_0 = Lambda(lambda x: tf.constant([0.09587285]))(img)
-    scale_1 = Lambda(lambda x: tf.constant([0.06797385]))(img)
-    # scale_0 = Lambda(lambda x: tf.constant([1.0]))(img)
-    # scale_1 = Lambda(lambda x: tf.constant([0.709]))(img)
+    # scale_0 = Lambda(lambda x: tf.constant([0.09587285]))(img)
+    # scale_1 = Lambda(lambda x: tf.constant([0.06797385]))(img)
+    scale_0 = Lambda(lambda x: tf.constant([1.0]))(img)
+    scale_1 = Lambda(lambda x: tf.constant([0.709]))(img)
     # scale_2 = Lambda(lambda x: tf.constant([0.5027]))(img)
     # scale_3 = Lambda(lambda x: tf.constant([0.3564]))(img)
     origin_h = Lambda(lambda x: tf.cast(tf.shape(x)[1], tf.float32))(img)
@@ -315,14 +356,13 @@ def mainmodel():
     # img_3 = Lambda(lambda x: tf.image.resize_images(x, tf.cast(scale_3*(origin_h, origin_w),tf.int32)))(img)
     outs_0 = _Pnet()([img_0, scale_0])
     outs_1 = _Pnet()([img_1, scale_1])
-    # outs_2 = _Pnet(Pnet_weight_path)([img_2, scale_2])
-    # outs_3 = _Pnet(Pnet_weight_path)([img_3, scale_2])
+
     outs = concatenate([outs_0, outs_1], axis=1)
     #### -------------- R-net ------------------####
-    out_nms, rectangles = NMS_4_Pnetouts()([outs, img])
+    # out_nms, rectangles = NMS_4_Pnetouts()([outs, img])
     # out_Rnet_1, out_Rnet_2 = Rnet_out()([out_nms, out_nms])
     # out_postRnet = out_post_Rnet()([out_Rnet_1, out_Rnet_2, rectangles, origin_h, origin_w])
-    model = Model(inputs=[img], outputs=[out_nms, rectangles])
+    model = Model(inputs=[img], outputs=[outs])
     return model
 
 # Pnet = _Pnet(r'12net.h5')
