@@ -318,7 +318,13 @@ class out_post_Rnet(Layer):
     def __init__(self, **kwargs):
         super(out_post_Rnet, self).__init__(**kwargs)
         self.threshold = 0.6
-    def filter_face_Rnet(self, cls_pro, rio_pro, rectangles, origin_h, origin_w):
+    def crop_image_Rnet(self, crop, img):
+        crop = tf.cast(crop, tf.int32)
+        img_crop = tf.slice(img, [crop[1]-1, crop[0]-1, 0], [crop[3] - crop[1], crop[2] - crop[0], 3] )
+        # img_crop_gather = tf.gather_nd()
+        img_crop = tf.image.resize_images(img_crop, (48, 48))
+        return img_crop
+    def filter_face_Rnet(self, cls_pro, rio_pro, rectangles, img_raw, origin_h, origin_w):
         pick_index = tf.gather(tf.where(cls_pro >= self.threshold), 0, axis=1)
         x1 = tf.gather(tf.gather(rectangles, 0, axis=1), pick_index)
         y1 = tf.gather(tf.gather(rectangles, 1, axis=1), pick_index)
@@ -338,15 +344,17 @@ class out_post_Rnet(Layer):
         rectangles = tf.stack([x1, y1, x2, y2, sc], axis=1)
         rectangles = Pnet_post().rec2square(rectangles)
         rectangles = Pnet_post()._NMS_own(rectangles, 0.3)
-        return rectangles, rectangles, rectangles
+        O_inputs = tf.map_fn(lambda x: self.crop_image_Rnet(x,img_raw), rectangles, dtype=(tf.float32))
+        return O_inputs, O_inputs, O_inputs, O_inputs
     def call(self, inputs):
         cls_pro = tf.gather(inputs[0], 1, axis=2)
         roi_pro = inputs[1]
         rectangles = inputs[2]
         origin_h = inputs[3]
         origin_w = inputs[4]
-        data_batch = (cls_pro, roi_pro, rectangles)
-        outs, _, _ = tf.map_fn(lambda x: self.filter_face_Rnet(x[0], x[1], x[2], origin_h, origin_w), data_batch, dtype=(tf.float32, tf.float32, tf.float32))
+        img_raw = inputs[5]
+        data_batch = (cls_pro, roi_pro, rectangles, img_raw)
+        outs, _, _, _ = tf.map_fn(lambda x: self.filter_face_Rnet(x[0], x[1], x[2], x[3], origin_h, origin_w), data_batch, dtype=(tf.float32, tf.float32, tf.float32, tf.float32))
         return outs
 
 def mainmodel():
@@ -364,7 +372,8 @@ def mainmodel():
     outs = concatenate([outs_0, outs_1], axis=1)
     out_nms, rectangles = NMS_4_Pnetouts()([outs, img])
     out_Rnet_1, out_Rnet_2 = Rnet_out()([out_nms, out_nms])
-    out_postRnet = out_post_Rnet()([out_Rnet_1, out_Rnet_2, rectangles, origin_h, origin_w])
+    out_postRnet = out_post_Rnet()([out_Rnet_1, out_Rnet_2, rectangles, origin_h, origin_w, img])
+
     model = Model(inputs=[img, img_0, scale_0, img_1, scale_1, origin_h, origin_w], outputs=[out_postRnet])
     return model
 
