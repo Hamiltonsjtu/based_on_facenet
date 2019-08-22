@@ -11,9 +11,11 @@ from keras.models import Model, Sequential
 import tensorflow as tf
 from keras.layers.advanced_activations import PReLU
 from keras.layers import Layer, Concatenate, Reshape
-def _Pnet(weight_path = './12net.h5'):
+def _Pnet( weight_path='./12net.h5'):
     img = Input(shape=[None, None, 3])
     scale = Input(shape=(1,))
+    height_raw = Input(shape=(1,))
+    width_raw = Input(shape=(1,))
     x_0 = Conv2D(10, (3, 3), strides=1, padding='valid', name='conv1')(img)
     x_0 = PReLU(shared_axes=[1,2],name='PReLU1')(x_0)
     x_0 = MaxPool2D(pool_size=2)(x_0)
@@ -23,8 +25,8 @@ def _Pnet(weight_path = './12net.h5'):
     x_0 = PReLU(shared_axes=[1,2],name='PReLU3')(x_0)
     classifier_0 = Conv2D(2, (1, 1), activation='softmax', name='conv4-1')(x_0)
     bbox_regress_0 = Conv2D(4, (1, 1), name='conv4-2')(x_0)
-    # outs_0 = Pnet_post(name='Pnet_output_post')([classifier_0, bbox_regress_0, input_img_0, scale])
-    model = Model(inputs=[img, scale], outputs=[bbox_regress_0])
+    outs = Pnet_post(name='Pnet_output_post')([classifier_0, bbox_regress_0, scale, height_raw, width_raw])
+    model = Model(inputs=[img, scale, height_raw, width_raw], outputs=[outs])
     model.load_weights(weight_path, by_name=True)
     return model
 def _Rnet(weight_path = './24net.h5'):
@@ -73,47 +75,47 @@ def _Onet(weight_path = './48net.h5'):
     model.load_weights(weight_path, by_name=True)
 
     return model
-# class _Rnet_post(Layer):
-#     def __init__(self, **kwargs):
-#         super(_Rnet_post, self).__init__(**kwargs)
-#         self.threshold = 0.7
-#     def _post_data_Rnet(self, classifier, bbox_regress, input_rects, input_height, input_width):
-#         return 1.0
-#     def call(self,inputs):
-#         classifier = inputs[0]
-#         bbox_regress = inputs[1]
-#         input_rects = inputs[2]
-#         input_height = inputs[3]
-#         input_width = inputs[4]
-#         batch_data = (classifier, bbox_regress, input_rects)
-#         bb1, bb2, bb3 = tf.map_fn(lambda x: self.post_data_Rnet(x[0], x[1], x[2], input_height, input_width), batch_data, dtype=(tf.float32, tf.float32, tf.float32))
-#         return bb1, bb2, bb3
-# def _Rnet(weight_path = 'model24.h5'):
-#     input = Input(shape=[24, 24, 3]) # change this shape to [None,None,3] to enable arbitraty shape input
-#     input_rects = Input(shape=[None, 4])
-#     input_height = Input(shape=(1,))
-#     input_width = Input(shape=(1,))
-#     x = Conv2D(28, (3, 3), strides=1, padding='valid', name='conv1')(input)
-#     x = PReLU(shared_axes=[1, 2], name='prelu1')(x)
-#     x = MaxPool2D(pool_size=3,strides=2, padding='same')(x)
-#
-#     x = Conv2D(48, (3, 3), strides=1, padding='valid', name='conv2')(x)
-#     x = PReLU(shared_axes=[1, 2], name='prelu2')(x)
-#     x = MaxPool2D(pool_size=3, strides=2)(x)
-#
-#     x = Conv2D(64, (2, 2), strides=1, padding='valid', name='conv3')(x)
-#     x = PReLU(shared_axes=[1, 2], name='prelu3')(x)
-#     x = Permute((3, 2, 1))(x)
-#     x = Flatten()(x)
-#     x = Dense(128, name='conv4')(x)
-#     x = PReLU( name='prelu4')(x)
-#     classifier = Dense(2, activation='softmax', name='conv5-1')(x)
-#     bbox_regress = Dense(4, name='conv5-2')(x)
-#
-#     R_out = _Rnet_post([classifier, bbox_regress, input_rects, input_height, input_width])
-#     model = Model([input], [classifier, bbox_regress, input_rects, input_height, input_width])
-#     model.load_weights(weight_path, by_name=True)
-#     return model
+class _Rnet_post(Layer):
+    def __init__(self, **kwargs):
+        super(_Rnet_post, self).__init__(**kwargs)
+        self.threshold = 0.7
+    def _post_data_Rnet(self, classifier, bbox_regress, input_rects, input_height, input_width):
+        return 1.0
+    def call(self,inputs):
+        classifier = inputs[0]
+        bbox_regress = inputs[1]
+        input_rects = inputs[2]
+        input_height = inputs[3]
+        input_width = inputs[4]
+        batch_data = (classifier, bbox_regress, input_rects)
+        bb1, bb2, bb3 = tf.map_fn(lambda x: self.post_data_Rnet(x[0], x[1], x[2], input_height, input_width), batch_data, dtype=(tf.float32, tf.float32, tf.float32))
+        return bb1, bb2, bb3
+def _Rnet_1(weight_path = 'model24.h5'):
+    input = Input(shape=[24, 24, 3]) # change this shape to [None,None,3] to enable arbitraty shape input
+    input_rects = Input(shape=[None, 4])
+    input_height = Input(shape=(1,))
+    input_width = Input(shape=(1,))
+    x = Conv2D(28, (3, 3), strides=1, padding='valid', name='conv1')(input)
+    x = PReLU(shared_axes=[1, 2], name='prelu1')(x)
+    x = MaxPool2D(pool_size=3,strides=2, padding='same')(x)
+
+    x = Conv2D(48, (3, 3), strides=1, padding='valid', name='conv2')(x)
+    x = PReLU(shared_axes=[1, 2], name='prelu2')(x)
+    x = MaxPool2D(pool_size=3, strides=2)(x)
+
+    x = Conv2D(64, (2, 2), strides=1, padding='valid', name='conv3')(x)
+    x = PReLU(shared_axes=[1, 2], name='prelu3')(x)
+    x = Permute((3, 2, 1))(x)
+    x = Flatten()(x)
+    x = Dense(128, name='conv4')(x)
+    x = PReLU( name='prelu4')(x)
+    classifier = Dense(2, activation='softmax', name='conv5-1')(x)
+    bbox_regress = Dense(4, name='conv5-2')(x)
+
+    R_out = _Rnet_post([classifier, bbox_regress, input_rects, input_height, input_width])
+    model = Model([input], [classifier, bbox_regress, input_rects, input_height, input_width])
+    model.load_weights(weight_path, by_name=True)
+    return model
 class Pnet_post(Layer):
     def __init__(self, **kwargs):
         super(Pnet_post, self).__init__(**kwargs)
@@ -171,7 +173,6 @@ class Pnet_post(Layer):
         #     return i, index_0, index_1, pick_index
         # re_index = tf.while_loop(cond, body, [i, index_0, index_1, pick_index],
         #                         shape_invariants=[i.get_shape(), index_0.get_shape(), index_1.get_shape(), tf.TensorShape([None, 2])])
-
         dx1 = tf.gather_nd(tf.gather(Roi, 0), thresh_index)
         dx2 = tf.gather_nd(tf.gather(Roi, 1), thresh_index)
         dx3 = tf.gather_nd(tf.gather(Roi, 2), thresh_index)
@@ -185,23 +186,19 @@ class Pnet_post(Layer):
         rectangles = self.rec2square(rectangles)
         return rectangles
     def pick_rect(self, rect_i, height_raw, width_raw):
-        x1 = tf.maximum(0.0, rect_i[0])
-        y1 = tf.maximum(0.0, rect_i[1])
-        x2 = tf.minimum(width_raw, rect_i[2])
-        y2 = tf.minimum(height_raw, rect_i[3])
-        sc = rect_i[4]
+        x1 = tf.maximum(0.0, tf.gather(rect_i, 0))
+        y1 = tf.maximum(0.0, tf.gather(rect_i, 1))
+        x2 = tf.minimum(tf.gather(width_raw, 0),  tf.gather(rect_i, 2))
+        y2 = tf.minimum(tf.gather(height_raw, 0),  tf.gather(rect_i, 3))
+        sc = tf.gather(rect_i, 4)
         def f1(): return x1, y1, x2, y2, sc
         def f2xy(): return tf.minimum(x1, x2), tf.minimum(y1, y2), tf.maximum(x1, x2), tf.maximum(y1, y2), sc
-        # def f2xy(): return None, None, None, None, None,
         cond_x = tf.greater(x1, x2)
         cond_y = tf.greater(y1, y2)
         cond_xy = cond_x | cond_y
         final = tf.cond(cond_xy, true_fn=f2xy, false_fn=f1)
         return final
-    def _pick_chs(self, rect, img):
-        img_shape = tf.shape(img)
-        height_raw = tf.cast(img_shape[0], tf.float32)
-        width_raw = tf.cast(img_shape[1], tf.float32)
+    def _pick_chs(self, rect, height_raw, width_raw):
         x1, y1, x2, y2, sc = tf.map_fn(lambda x: self.pick_rect(x, height_raw, width_raw), rect, dtype=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32))
         return tf.stack([x1, y1, x2, y2, sc], axis=1)
     def _pick_chs_old(self, rect, img_shape):
@@ -263,22 +260,22 @@ class Pnet_post(Layer):
     #         return img_crop
     #     cropped_img = tf.map_fn(lambda x: crop_image(img, x),rects_int, dtype=(tf.float32))
     #     return cropped_img
-    def post_data_Pnet(self, classifier, bbox_regress, img, scale):
+    def post_data_Pnet(self, classifier, bbox_regress, scale, height_raw, width_raw):
         Cls_pro = tf.transpose(tf.gather(classifier, [1], axis=2), perm=[1, 0, 2])  # w, h
-        Roi = tf.transpose(bbox_regress, perm=[2, 1, 0])                            # h, w
+        Roi = tf.transpose(bbox_regress, perm=[2, 1, 0])                            # w, h
         rectangles = self._cls_bb2rect(Cls_pro, Roi, 1.0/scale)
-        pick = self._pick_chs(rectangles, img)
+        pick = self._pick_chs(rectangles, height_raw, width_raw)
         Pnet_rect = self._NMS_own(pick, 0.3)
         # Pnet_rect = self._NMS(pick, 0.3, 100)
-        return Pnet_rect, Pnet_rect, pick
-        # return pick, pick, pick
+        return Pnet_rect, Pnet_rect, Pnet_rect, Pnet_rect, Pnet_rect
     def call(self, inputs):
         classifier = inputs[0]
         bbox_regress = inputs[1]
-        img = inputs[2]
-        scales = inputs[3]
-        batch_data = (classifier, bbox_regress, img)
-        rects, _, pick = tf.map_fn(lambda x: self.post_data_Pnet(x[0], x[1], x[2], scales), batch_data, dtype=(tf.float32, tf.float32, tf.float32))
+        scale = inputs[2]
+        height_raw = inputs[3]
+        width_raw = inputs[4]
+        batch_data = (classifier, bbox_regress, scale, height_raw, width_raw)
+        rects, _, _, _, _ = tf.map_fn(lambda x: self.post_data_Pnet(x[0], x[1], x[2], x[3], x[4]), batch_data, dtype=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32))
         return [rects]
 class NMS_4_Pnetouts(Layer):
     def __init__(self, **kwargs):
@@ -340,7 +337,7 @@ class out_post_Rnet(Layer):
         y2 = y2 + dx4*h
         rectangles = tf.stack([x1, y1, x2, y2, sc], axis=1)
         rectangles = Pnet_post().rec2square(rectangles)
-        rectangles = Pnet_post()._NMS(rectangles, 0.3, 100)
+        rectangles = Pnet_post()._NMS_own(rectangles, 0.3)
         return rectangles, rectangles, rectangles
     def call(self, inputs):
         cls_pro = tf.gather(inputs[0], 1, axis=2)
@@ -352,97 +349,58 @@ class out_post_Rnet(Layer):
         outs, _, _ = tf.map_fn(lambda x: self.filter_face_Rnet(x[0], x[1], x[2], origin_h, origin_w), data_batch, dtype=(tf.float32, tf.float32, tf.float32))
         return outs
 
-
 def mainmodel():
-    #### -------------- P-net ------------------####
     img = Input(shape=[None, None, 3])
-    scale = Input(shape=(1,))
-    # origin_w = Input(shape=(1,))
-    # origin_h = Input(shape=(1,))
-    outs = _Pnet()([img, scale])
-    # outs_1= _Pnet()([img_1, scale_1])
+    img_0 = Input(shape=[None, None, 3])
+    scale_0 = Input(shape=(1,))
+    img_1 = Input(shape=[None, None, 3])
+    scale_1 = Input(shape=(1,))
+    origin_h = Input(shape=(1,))
+    origin_w = Input(shape=(1,))
+    ################## --- Pnet -----############
+    outs_0 = _Pnet()([img_0, scale_0, origin_h, origin_w])
+    outs_1 = _Pnet()([img_1, scale_1, origin_h, origin_w])
 
-    # outs = concatenate([outs_0, outs_1], axis=1)
-    #### -------------- R-net ------------------####
-    # out_nms, rectangles = NMS_4_Pnetouts()([outs, img])
-    # out_Rnet_1, out_Rnet_2 = Rnet_out()([out_nms, out_nms])
-    # out_postRnet = out_post_Rnet()([out_Rnet_1, out_Rnet_2, rectangles, origin_h, origin_w])
-    model = Model(inputs=[img, scale], outputs=[outs])
+    outs = concatenate([outs_0, outs_1], axis=1)
+    out_nms, rectangles = NMS_4_Pnetouts()([outs, img])
+    out_Rnet_1, out_Rnet_2 = Rnet_out()([out_nms, out_nms])
+    out_postRnet = out_post_Rnet()([out_Rnet_1, out_Rnet_2, rectangles, origin_h, origin_w])
+    model = Model(inputs=[img, img_0, scale_0, img_1, scale_1, origin_h, origin_w], outputs=[out_postRnet])
     return model
 
-# Pnet = _Pnet(r'12net.h5')
-Network = mainmodel()
-# Rnet = _Rnet(r'24net.h5')
-# Onet = _Onet(r'48net.h5')
+
 
 while (True):
-    # ret, img = cap.read()
+
     print('Load picture again!')
     img = cv2.imread(r'F:\TEST\3.jpg')
     img = (img.copy() - 127.5) / 127.5
-
+    img_raw = np.expand_dims(img, axis=0)
     origin_h, origin_w, ch = img.shape
-    scale = 0.04819346
-    hs = int(origin_h * scale)
-    ws = int(origin_w * scale)
-    scale_img = cv2.resize(img, (ws, hs))
-    # img_1 = cv2.resize(img_0, scales[1]*(origin_w, origin_h))
-    # img_2 = cv2.resize(img_0, scales[2]*(origin_w, origin_h))
-    scale_img = np.expand_dims(scale_img, axis=0)
-    # img_1 = np.expand_dims(img_1, axis=0)
-    # img_2 = np.expand_dims(img_2, axis=0)
-    # shape_img = [origin_w, origin_h]
-    # shape_img = np.expand_dims(np.array(shape_img), axis=0)
-    ###   -------------------   ###
-    ###   scale by tensorflow   ###
-    ###   -------------------   ###
-    # tf_img_in = tf.placeholder(dtype=tf.float32, shape=(None, None, 3))
-    # scale = 3
-    # tf_img_op1 = tf.image.resize_images(tf_img_in, [h * scale, w * scale], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-    # sess = tf.Session()
-    # sess.run(tf.global_variables_initializer())
-    # img_op1 = sess.run([tf_img_op1], feed_dict={tf_img_in: img})
-    ###   -------------------   ###
-    ###   scale by keras model  ###
-    ###   -------------------   ###
-    # input_img = Input(shape=[None, None, 3], name='img')
-    # Scale_layer = Lambda(resize_img, name='lambda_scale')(input_img)
-    # model = Model(input_img, Scale_layer)
-    # model.summary()
-    # img = np.expand_dims(img, axis=0)
-    # image_scaled = model.predict(img)
-    # image_height = get_layer_output(img, model, 'lambda_scale')
-    # print('Done')
-    # for rectangle in rectangles:
-    #     if rectangle is not None:
-    #         W = -int(rectangle[0]) + int(rectangle[2])
-    #         H = -int(rectangle[1]) + int(rectangle[3])
-    #         paddingH = 0.01 * W
-    #         paddingW = 0.02 * H
-    #         crop_img = img[int(rectangle[1]+paddingH):int(rectangle[3]-paddingH), int(rectangle[0]-paddingW):int(rectangle[2]+paddingW)]
-    #         crop_img = cv2.cvtColor(crop_img, cv2.COLOR_RGB2GRAY)
-    #         if crop_img is None:
-    #             continue
-    #         if crop_img.shape[0] < 0 or crop_img.shape[1] < 0:
-    #             continue
-    #         cv2.rectangle(draw, (int(rectangle[0]), int(rectangle[1])), (int(rectangle[2]), int(rectangle[3])), (255, 0, 0), 1)
-    #         for i in range(5, 15, 2):
-    #             cv2.circle(draw, (int(rectangle[i + 0]), int(rectangle[i + 1])), 2, (0, 255, 0))
-    # cv2.imshow("test", draw)
-    # c = cv2.waitKey(1) & 0xFF
-    # print(c)
-    # if c == 27 or c == ord('q'):
-    #     break
-    # cv2.imwrite('test.jpg', draw)
-    # pnet_layer_output = get_layer_output(img, Pnet, 'Pnet_output_post')
-    # output = Pnet.predict([img_0, img_1, img_2])
-    outs = Network.predict([scale_img, np.expand_dims(scale, axis=0)])
-    # plt.imshow(output[1][0,:,:,::-1])
+
+    scales = [0.09587285, 0.06797385]
+
+    scale_0 = scales[0]
+    hs_0 = int(origin_h * scale_0)
+    ws_0 = int(origin_w * scale_0)
+    scale_img_in_0 = np.expand_dims(cv2.resize(img, (ws_0, hs_0)), axis=0)
+    scale_in_0 = np.expand_dims(scale_0, axis=0)
+
+    scale_1 = scales[1]
+    hs_1 = int(origin_h * scale_1)
+    ws_1 = int(origin_w * scale_1)
+    scale_img_in_1 = np.expand_dims(cv2.resize(img, (ws_1, hs_1)), axis=0)
+    scale_in_1 = np.expand_dims(scale_1, axis=0)
+
+    height_in = np.expand_dims(origin_h, axis=0)
+    width_in = np.expand_dims(origin_w, axis=0)
+
+    outs = mainmodel().predict([img_raw, scale_img_in_0, scale_in_0, scale_img_in_1, scale_in_1, height_in, width_in])
+
+    # plt.imshow(outs[0][0,2,:,:,:])
     # plt.title("TF_OUT")
     # plt.show()
-    # cls_pro, roi = Pnet_out(ouput)
-    # model = Model(ouput, pro_bbox)
-    # image_scaled = model.predict(img)
+
     print('Done')
 
 
