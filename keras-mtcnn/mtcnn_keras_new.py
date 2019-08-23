@@ -399,6 +399,7 @@ class Onet_post(Layer):
             #                          rectangles[i,13], rectangles[i,14]]], axis=0)
             i = tf.add(i, 1)
             return i, rectangles, pick, width_raw, height_raw
+
         i, rectangles, pick, wid, heig = tf.while_loop(loop_cond, loop_body, [i, rectangles, pick, width_raw, height_raw],
                                    shape_invariants=[i.get_shape(), rectangles.get_shape(), tf.TensorShape([None, 15]), width_raw.get_shape(), height_raw.get_shape()])
 
@@ -415,9 +416,9 @@ class Onet_post(Layer):
                                         dtype=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32))
         return pick
 
-    # def compute_output_shape(self, input_shape):
-    #     shape_a = input_shape[0]
-    #     return [(shape_a, 15)]
+    def compute_output_shape(self, input_shape):
+        shape_a = input_shape[0]
+        return [(shape_a,shape_a, 15)]
 
 class out_post_Rnet(Layer):
     def __init__(self, **kwargs):
