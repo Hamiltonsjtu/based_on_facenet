@@ -314,112 +314,6 @@ class Rnet_out(Layer):
         batch_data = (inputs[0], inputs[1])
         outs_1, outs_2 = tf.map_fn(lambda x: self.r_net_predict(x[0], x[1]), batch_data, dtype=(tf.float32, tf.float32))
         return [outs_1, outs_2]
-class Onet_out(Layer):
-    def __init__(self, **kwargs):
-        self.output_dim = 3
-        super(Onet_out, self).__init__(**kwargs)
-        self.o_net = _Onet()
-    def o_net_predict(self, xx):
-        cls_O, roi_O, pts_O = self.o_net(xx)
-        # outs = tf.concat([cls_R, bbox_R], 1)
-        return cls_O, roi_O, pts_O
-    def call(self, inputs):
-        # cls_O, roi_O, pts_O  = self.o_net_predict(inputs)
-        # batch_data = (inputs)
-        cls_O, roi_O, pts_O = tf.map_fn(lambda x: self.o_net_predict(x), inputs, dtype=(tf.float32, tf.float32, tf.float32))
-        return [cls_O, roi_O, pts_O]
-    def compute_output_shape(self, input_shape):
-        shape_a = input_shape[0]
-        return [(shape_a, 2), (shape_a, 4), (shape_a, 10)]
-class Onet_post(Layer):
-    def __init__(self, **kwargs):
-        self.threshold = 0.7
-        super(Onet_post, self).__init__(**kwargs)
-
-    def filter_face_48net(self,cls_prob,roi,pts,rectangles,width_raw,height_raw):
-        prob = tf.gather(cls_prob, 1, axis=1)
-        pick = tf.where(prob >= self.threshold)
-        x1 = tf.gather(tf.gather(rectangles, 0, axis=1), pick)
-        y1 = tf.gather(tf.gather(rectangles, 1, axis=1), pick)
-        x2 = tf.gather(tf.gather(rectangles, 2, axis=1), pick)
-        y2 = tf.gather(tf.gather(rectangles, 3, axis=1), pick)
-        sc = tf.gather(prob, pick)
-        dx1 = tf.gather(tf.gather(roi, 0, axis=1), pick)
-        dx2 = tf.gather(tf.gather(roi, 1, axis=1), pick)
-        dx3 = tf.gather(tf.gather(roi, 2, axis=1), pick)
-        dx4 = tf.gather(tf.gather(roi, 3, axis=1), pick)
-        w   = x2-x1
-        h   = y2-y1
-        pts0 = w*tf.gather(pts,[0], axis=1) + x1
-        pts1 = w*tf.gather(pts,[5], axis=1) + y1
-        pts2 = w*tf.gather(pts,[1], axis=1) + x1
-        pts3 = w*tf.gather(pts,[6], axis=1) + y1
-        pts4 = w*tf.gather(pts,[2], axis=1) + x1
-        pts5 = w*tf.gather(pts,[7], axis=1) + y1
-        pts6 = w*tf.gather(pts,[3], axis=1) + x1
-        pts7 = w*tf.gather(pts,[8], axis=1) + y1
-        pts8 = w*tf.gather(pts,[4], axis=1) + x1
-        pts9 = w*tf.gather(pts,[9], axis=1) + y1
-
-        x1 = x1 + dx1*w
-        y1 = y1 + dx2*h
-        x2 = x2 + dx3*w
-        y2 = y2 + dx4*h
-        rectangles = tf.concat([x1, y1, x2, y2, sc, pts0, pts1, pts2, pts3, pts4, pts5, pts6, pts7, pts8, pts9], axis=1)
-
-        # pick = tf.Variable(tf.zeros([1, 15], dtype=tf.float32))
-        # pick = tf.TensorArray(dtype=tf.float32, size=15, dynamic_size=True, clear_after_read=False)
-        # pick = tf.placeholder(tf.float32, (None, 15))
-        # pick = tf.Variable([], dtype=tf.float32)
-        pick = tf.stack([[rectangles[0, 0], rectangles[0, 1], rectangles[0, 2], rectangles[0,3], rectangles[0, 4],
-                          rectangles[0,5],  rectangles[0,6],  rectangles[0,7],  rectangles[0,8],
-                          rectangles[0,9],  rectangles[0,10], rectangles[0,11], rectangles[0,12],
-                          rectangles[0,13], rectangles[0,14]]])
-        i = tf.constant(0)
-        row_rect = tf.shape(rectangles)[0]
-        loop_cond = lambda i, rectangles, pick, width_raw,height_raw: i < row_rect
-        def loop_body(i, rectangles, pick, width_raw,height_raw):
-            x1 = tf.maximum(0.0, tf.gather_nd(rectangles, [i, 0]))
-            y1 = tf.maximum(0.0, tf.gather_nd(rectangles, [i, 1]))
-            x2 = tf.minimum(width_raw[0], tf.gather_nd(rectangles, [i, 2]))
-            y2 = tf.minimum(height_raw[0], tf.gather_nd(rectangles, [i, 3]))
-            tf_if_cond = tf.greater(x2, x1) & tf.greater(y2, y1)
-            def tf_true():
-                return x1, y1, x2, y2
-            def tf_false():
-                return tf.minimum(x1, x2), tf.minimum(y1, y2), tf.maximum(x1, x2), tf.maximum(y1, y2)
-            x1, y1, x2, y2 = tf.cond(tf_if_cond, tf_true, tf_false)
-            stack_all = tf.stack([[x1, y1, x2, y2, rectangles[i, 4],rectangles[i,5], rectangles[i,6], rectangles[i,7],
-                                     rectangles[i,8],rectangles[i,9], rectangles[i,10], rectangles[i,11], rectangles[i,12],
-                                     rectangles[i,13], rectangles[i,14]]])
-            pick = tf.concat([pick, stack_all], axis=0)
-            # pick = tf.concat([pick, [x1, y1, x2, y2, rectangles[i,4],
-            #                          rectangles[i,5], rectangles[i,6], rectangles[i,7], rectangles[i,8],
-            #                          rectangles[i,9], rectangles[i,10], rectangles[i,11], rectangles[i,12],
-            #                          rectangles[i,13], rectangles[i,14]]], axis=0)
-            i = tf.add(i, 1)
-            return i, rectangles, pick, width_raw, height_raw
-
-        i, rectangles, pick, wid, heig = tf.while_loop(loop_cond, loop_body, [i, rectangles, pick, width_raw, height_raw],
-                                   shape_invariants=[i.get_shape(), rectangles.get_shape(), tf.TensorShape([None, 15]), width_raw.get_shape(), height_raw.get_shape()])
-
-        return i, rectangles, pick, wid, heig, pick
-    def call(self, inputs):
-        cls = inputs[0]
-        roi = inputs[1]
-        pts = inputs[2]
-        rect = inputs[3]
-        origin_h = inputs[4]
-        origin_w = inputs[5]
-        batch_data = (cls, roi, pts, rect, origin_h, origin_w)
-        i, rectangles, pick, wid, heig, pick_1 = tf.map_fn(lambda x: self.filter_face_48net(x[0], x[1], x[2], x[3], x[4], x[5]), batch_data,
-                                        dtype=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32))
-        return pick
-
-    def compute_output_shape(self, input_shape):
-        shape_a = input_shape[0]
-        return [(shape_a,shape_a, 15)]
-
 class out_post_Rnet(Layer):
     def __init__(self, **kwargs):
         super(out_post_Rnet, self).__init__(**kwargs)
@@ -464,6 +358,122 @@ class out_post_Rnet(Layer):
         cls_O, roi_O, pts_O = Onet_out()([outs])
         return [cls_O, roi_O, pts_O, rectangles]
 
+class Onet_out(Layer):
+    def __init__(self, **kwargs):
+        self.output_dim = 3
+        super(Onet_out, self).__init__(**kwargs)
+        self.o_net = _Onet()
+    def o_net_predict(self, xx):
+        cls_O, roi_O, pts_O = self.o_net(xx)
+        # outs = tf.concat([cls_R, bbox_R], 1)
+        return cls_O, roi_O, pts_O
+    def call(self, inputs):
+        # cls_O, roi_O, pts_O  = self.o_net_predict(inputs)
+        # batch_data = (inputs)
+        cls_O, roi_O, pts_O = tf.map_fn(lambda x: self.o_net_predict(x), inputs, dtype=(tf.float32, tf.float32, tf.float32))
+        return [cls_O, roi_O, pts_O]
+    def compute_output_shape(self, input_shape):
+        shape_a = input_shape[0]
+        return [(shape_a, 2), (shape_a, 4), (shape_a, 10)]
+class Onet_post_0(Layer):
+    def __init__(self, **kwargs):
+        self.threshold = 0.7
+        super(Onet_post_0, self).__init__(**kwargs)
+
+    def filter_face_48net(self,cls_prob,roi,pts,rectangles,width_raw,height_raw):
+        prob = tf.gather(cls_prob, 1, axis=1)
+        pick = tf.where(prob >= self.threshold)
+        x1 = tf.gather(tf.gather(rectangles, 0, axis=1), pick)
+        y1 = tf.gather(tf.gather(rectangles, 1, axis=1), pick)
+        x2 = tf.gather(tf.gather(rectangles, 2, axis=1), pick)
+        y2 = tf.gather(tf.gather(rectangles, 3, axis=1), pick)
+        sc = tf.gather(prob, pick)
+        dx1 = tf.gather(tf.gather(roi, 0, axis=1), pick)
+        dx2 = tf.gather(tf.gather(roi, 1, axis=1), pick)
+        dx3 = tf.gather(tf.gather(roi, 2, axis=1), pick)
+        dx4 = tf.gather(tf.gather(roi, 3, axis=1), pick)
+        w   = x2-x1
+        h   = y2-y1
+        pts0 = tf.multiply(w, tf.gather(tf.gather(pts,0, axis=1), pick))+ x1
+        pts1 = tf.multiply(h, tf.gather(tf.gather(pts,5, axis=1), pick)) + y1
+        pts2 = tf.multiply(w, tf.gather(tf.gather(pts,1, axis=1), pick)) + x1
+        pts3 = tf.multiply(h, tf.gather(tf.gather(pts,6, axis=1), pick)) + y1
+        pts4 = tf.multiply(w, tf.gather(tf.gather(pts,2, axis=1), pick)) + x1
+        pts5 = tf.multiply(h, tf.gather(tf.gather(pts,7, axis=1), pick)) + y1
+        pts6 = tf.multiply(w, tf.gather(tf.gather(pts,3, axis=1), pick)) + x1
+        pts7 = tf.multiply(h, tf.gather(tf.gather(pts,8, axis=1), pick)) + y1
+        pts8 = tf.multiply(w, tf.gather(tf.gather(pts,4, axis=1), pick)) + x1
+        pts9 = tf.multiply(h, tf.gather(tf.gather(pts,9, axis=1), pick)) + y1
+
+        x1 = x1 + tf.multiply(w, dx1)
+        y1 = y1 + tf.multiply(h, dx2)
+        x2 = x2 + tf.multiply(w, dx3)
+        y2 = y2 + tf.multiply(h, dx4)
+        rects = tf.concat([x1, y1, x2, y2, sc, pts0, pts1, pts2, pts3, pts4, pts5, pts6, pts7, pts8, pts9], axis=1)
+        # # pick = tf.Variable(tf.zeros([1, 15], dtype=tf.float32))
+        # # pick = tf.TensorArray(dtype=tf.float32, size=15, dynamic_size=True, clear_after_read=False)
+        # # pick = tf.placeholder(tf.float32, (None, 15))
+        # # pick = tf.Variable([], dtype=tf.float32)
+        pick = tf.stack([[rects[0, 0], rects[0, 1], rects[0, 2], rects[0,3], rects[0, 4],
+                          rects[0,5],  rects[0,6],  rects[0,7],  rects[0,8],
+                          rects[0,9],  rects[0,10], rects[0,11], rects[0,12],
+                          rects[0,13], rects[0,14]]])
+        i = tf.constant(0)
+        row_rect = tf.shape(rects)[0]
+        loop_cond = lambda i, rects, pick, width_raw,height_raw: i < row_rect
+        def loop_body(i, rects, pick, width_raw,height_raw):
+            x1 = tf.maximum(0.0, tf.gather_nd(rects, [i, 0]))
+            y1 = tf.maximum(0.0, tf.gather_nd(rects, [i, 1]))
+            x2 = tf.minimum(width_raw[0], tf.gather_nd(rects, [i, 2]))
+            y2 = tf.minimum(height_raw[0], tf.gather_nd(rects, [i, 3]))
+            tf_if_cond = tf.greater(x2, x1) & tf.greater(y2, y1)
+            def tf_true(x1, y1, x2, y2):
+                return x1, y1, x2, y2
+            def tf_false(x1, y1, x2, y2):
+                return tf.minimum(x1, x2), tf.minimum(y1, y2), tf.maximum(x1, x2), tf.maximum(y1, y2)
+            x1, y1, x2, y2 = tf.cond(tf_if_cond, tf_true(x1, y1, x2, y2), tf_false(x1, y1, x2, y2))
+            stack_all = tf.stack([[x1, y1, x2, y2, rects[i, 4],rects[i,5], rects[i,6], rects[i,7],
+                                     rects[i,8],rects[i,9], rects[i,10], rects[i,11], rects[i,12],
+                                     rects[i,13], rects[i,14]]])
+            pick = tf.concat([pick, stack_all], axis=0)
+            # pick = tf.concat([pick, [x1, y1, x2, y2, rectangles[i,4],
+            #                          rectangles[i,5], rectangles[i,6], rectangles[i,7], rectangles[i,8],
+            #                          rectangles[i,9], rectangles[i,10], rectangles[i,11], rectangles[i,12],
+            #                          rectangles[i,13], rectangles[i,14]]], axis=0)
+            i = tf.add(i, 1)
+            return i, rects, pick, width_raw, height_raw
+
+        i, rectangles, pick, wid, heig = tf.while_loop(loop_cond, loop_body, [i, rects, pick, width_raw, height_raw],
+                                   shape_invariants=[i.get_shape(), rects.get_shape(), tf.TensorShape([None, 15]), width_raw.get_shape(), height_raw.get_shape()])
+        #
+        # return pts8, pts3
+        return i, rectangles, pick, wid, heig, pick
+    def call(self, inputs):
+        cls = inputs[0]
+        roi = inputs[1]
+        pts = inputs[2]
+        rect = inputs[3]
+        origin_h = inputs[4]
+        origin_w = inputs[5]
+        batch_data = (cls, roi, pts, rect, origin_h, origin_w)
+        # i, rectangles, pick, wid, heig, pick = tf.map_fn(lambda x: self.filter_face_48net(x[0], x[1], x[2], x[3], x[4], x[5]), batch_data,
+        #                                                                                            dtype=(tf.float32, tf.float32))
+        # , tf.float32, tf.float32, tf.float32, tf.float32,
+        #                                                                                               tf.float32, tf.float32, tf.float32, tf.float32, tf.float32,
+        #                                                                                               tf.float32, tf.float32, tf.float32, tf.float32, tf.float32))
+        i, rectangles, pick, wid, heig, pick_1 = tf.map_fn(lambda x: self.filter_face_48net(x[0], x[1], x[2], x[3], x[4], x[5]), batch_data,
+                                        dtype=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32))
+        return [pick]
+
+    def compute_output_shape(self, input_shape):
+        # shape_a = input_shape[0][0]
+        return [(None, None, 15)]
+            # , (None, None, 1), (None, None, 1), (None, None, 1), (None, None, 1),
+            #     (None, None, 1), (None, None, 1), (None, None, 1), (None, None, 1), (None, None, 1),
+            #     (None, None, 1), (None, None, 1), (None, None, 1), (None, None, 1), (None, None, 1)]
+
+
+
 def mainmodel():
     img = Input(shape=[None, None, 3])
     img_0 = Input(shape=[None, None, 3])
@@ -480,10 +490,9 @@ def mainmodel():
     out_nms, rectangles_p = NMS_4_Pnetouts()([outs, img])
     out_Rnet_1, out_Rnet_2 = Rnet_out()([out_nms, out_nms])
     cls_O, roi_O, pts_O, rectangles_r = out_post_Rnet()([out_Rnet_1, out_Rnet_2, rectangles_p, origin_h, origin_w, img])
-    rectangles_O = Onet_post()([cls_O, roi_O, pts_O, rectangles_r, origin_h, origin_w])
-    model = Model(inputs=[img, img_0, scale_0, img_1, scale_1, origin_h, origin_w], outputs=[rectangles_O])
+    rects = Onet_post_0()([cls_O, roi_O, pts_O, rectangles_r, origin_h, origin_w])
+    model = Model(inputs=[img, img_0, scale_0, img_1, scale_1, origin_h, origin_w], outputs=[rects])
     return model
-
 
 
 while (True):
