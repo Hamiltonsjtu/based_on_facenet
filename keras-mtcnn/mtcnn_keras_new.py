@@ -111,7 +111,6 @@ def _Rnet_1(weight_path = 'model24.h5'):
     x = PReLU( name='prelu4')(x)
     classifier = Dense(2, activation='softmax', name='conv5-1')(x)
     bbox_regress = Dense(4, name='conv5-2')(x)
-
     R_out = _Rnet_post([classifier, bbox_regress, input_rects, input_height, input_width])
     model = Model([input], [classifier, bbox_regress, input_rects, input_height, input_width])
     model.load_weights(weight_path, by_name=True)
@@ -206,7 +205,7 @@ class Pnet_post(Layer):
         width_raw = tf.cast(img_shape[1], tf.float32)
         x1, y1, x2, y2, sc = tf.map_fn(lambda x: self.pick_rect(x, height_raw, width_raw), rect, dtype=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32))
         return tf.stack([x1, y1, x2, y2, sc], axis=1)
-    def _NMS_own(self, rectangles, threshold):
+    def _NMS_own(self, rectangles, threshold, type):
         len_rect = tf.size(rectangles)
         condlen = tf.equal(len_rect, 0)
         def len0(): return rectangles
@@ -232,7 +231,13 @@ class Pnet_post(Layer):
                 w = tf.maximum(0.0, xx2 - xx1 + 1.0)
                 h = tf.maximum(0.0, yy2 - yy1 + 1.0)
                 inter = w * h
-                o = inter / (tf.gather(area, index_1) + tf.gather(area, index_2) - inter)
+                def istypeiom():
+                    return inter / (tf.minimum(tf.gather(area, index_1), tf.gather(area, index_2)))
+                def typenoetiom():
+                    return inter / (tf.gather(area, index_1) + tf.gather(area, index_2) - inter)
+
+                o = tf.cond(tf.equal(type, 'iom'), istypeiom, typenoetiom)
+
                 pick = tf.concat([pick, index_1], axis=0)
                 I_index_tmp = tf.where(o <= threshold)
                 I_index = tf.gather(I_index_tmp, 0, axis=1)
@@ -252,20 +257,12 @@ class Pnet_post(Layer):
             boxes, scores, max_output_size, iou_threshold)
         selected = tf.gather(rectangles, selected_indices)
         return selected
-    # def _crop(self, img, rects):
-    #     rects_int = tf.cast(rects, tf.int32)
-    #     def crop_image(img, crop):
-    #         img_crop = tf.slice(img, [crop[1], crop[0], 0], [crop[3] - crop[1] + 1, crop[2] - crop[0] + 1, 3] )
-    #         img_crop = tf.image.resize_images(img_crop, (24, 24))
-    #         return img_crop
-    #     cropped_img = tf.map_fn(lambda x: crop_image(img, x),rects_int, dtype=(tf.float32))
-    #     return cropped_img
     def post_data_Pnet(self, classifier, bbox_regress, scale, height_raw, width_raw):
         Cls_pro = tf.transpose(tf.gather(classifier, [1], axis=2), perm=[1, 0, 2])  # w, h
         Roi = tf.transpose(bbox_regress, perm=[2, 1, 0])                            # w, h
         rectangles = self._cls_bb2rect(Cls_pro, Roi, 1.0/scale)
         pick = self._pick_chs(rectangles, height_raw, width_raw)
-        Pnet_rect = self._NMS_own(pick, 0.3)
+        Pnet_rect = self._NMS_own(pick, 0.3, 'iou')
         # Pnet_rect = self._NMS(pick, 0.3, 100)
         return Pnet_rect, Pnet_rect, Pnet_rect, Pnet_rect, Pnet_rect
     def call(self, inputs):
@@ -280,12 +277,6 @@ class Pnet_post(Layer):
 class NMS_4_Pnetouts(Layer):
     def __init__(self, **kwargs):
         super(NMS_4_Pnetouts, self).__init__(**kwargs)
-    # def _NMS(self, rect):
-    #     bboxes = tf.gather(rect, [0,1,2,3], axis=-1)
-    #     scores = tf.gather(rect, 4, axis=-1)
-    #     selected_indices = tf.image.non_max_suppression(bboxes, scores, max_output_size=100, iou_threshold=0.7)
-    #     selected = tf.gather(rect, selected_indices)
-    #     return selected
     def _crop(self, rects, img):
         rects_int = tf.cast(rects, tf.int32)
         def crop_image(img, crop):
@@ -298,7 +289,7 @@ class NMS_4_Pnetouts(Layer):
     def call(self, inputs):
         rects = inputs[0]
         img = inputs[1]
-        bb = tf.map_fn(lambda x: Pnet_post()._NMS_own(x, 0.7), rects, dtype=(tf.float32))
+        bb = tf.map_fn(lambda x: Pnet_post()._NMS_own(x, 0.7, 'iou'), rects, dtype=(tf.float32))
         data_batch = (bb, img)
         Pnet_4_Rnet = tf.map_fn(lambda x: self._crop(x[0], x[1]), data_batch, dtype=(tf.float32))
         return [Pnet_4_Rnet, bb]
@@ -343,7 +334,7 @@ class out_post_Rnet(Layer):
         y2 = y2 + dx4*h
         rectangles = tf.stack([x1, y1, x2, y2, sc], axis=1)
         rectangles = Pnet_post().rec2square(rectangles)
-        rectangles = Pnet_post()._NMS_own(rectangles, 0.3)
+        rectangles = Pnet_post()._NMS_own(rectangles, 0.3, 'iou')
         O_inputs = tf.map_fn(lambda x: self.crop_image_Rnet(x,img_raw), rectangles, dtype=(tf.float32))
         return O_inputs, O_inputs, O_inputs, rectangles
     def call(self, inputs):
@@ -380,7 +371,7 @@ class Onet_post_0(Layer):
         self.threshold = 0.7
         super(Onet_post_0, self).__init__(**kwargs)
 
-    def filter_face_48net(self,cls_prob,roi,pts,rectangles,width_raw,height_raw):
+    def filter_face_48net(self,cls_prob,roi,pts,rectangles,height_raw, width_raw):
         prob = tf.gather(cls_prob, 1, axis=1)
         pick = tf.where(prob >= self.threshold)
         x1 = tf.gather(tf.gather(rectangles, 0, axis=1), pick)
@@ -418,23 +409,38 @@ class Onet_post_0(Layer):
                           rects[0,5],  rects[0,6],  rects[0,7],  rects[0,8],
                           rects[0,9],  rects[0,10], rects[0,11], rects[0,12],
                           rects[0,13], rects[0,14]]])
+        # pick = tf.stack([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
         i = tf.constant(0)
         row_rect = tf.shape(rects)[0]
-        loop_cond = lambda i, rects, pick, width_raw,height_raw: i < row_rect
+        loop_cond = lambda i, rects, pick, width_raw, height_raw: i < row_rect
         def loop_body(i, rects, pick, width_raw,height_raw):
             x1 = tf.maximum(0.0, tf.gather_nd(rects, [i, 0]))
             y1 = tf.maximum(0.0, tf.gather_nd(rects, [i, 1]))
             x2 = tf.minimum(width_raw[0], tf.gather_nd(rects, [i, 2]))
             y2 = tf.minimum(height_raw[0], tf.gather_nd(rects, [i, 3]))
             tf_if_cond = tf.greater(x2, x1) & tf.greater(y2, y1)
-            def tf_true(x1, y1, x2, y2):
-                return x1, y1, x2, y2
-            def tf_false(x1, y1, x2, y2):
-                return tf.minimum(x1, x2), tf.minimum(y1, y2), tf.maximum(x1, x2), tf.maximum(y1, y2)
-            x1, y1, x2, y2 = tf.cond(tf_if_cond, tf_true(x1, y1, x2, y2), tf_false(x1, y1, x2, y2))
+            # def tf_true(x1, y1, x2, y2):
+            #     return x1, y1, x2, y2
+            # def tf_false(x1, y1, x2, y2):
+            #     return tf.minimum(x1, x2), tf.minimum(y1, y2), tf.maximum(x1, x2), tf.maximum(y1, y2)
+            # x1, y1, x2, y2 = tf.cond(tf_if_cond, lambda: tf_true(x1, y1, x2, y2), lambda: tf_false(x1, y1, x2, y2))
+            # def tf_true():
+            #     return x1, y1, x2, y2
+            # def tf_false():
+            #     return tf.minimum(x1, x2), tf.minimum(y1, y2), tf.maximum(x1, x2), tf.maximum(y1, y2)
+
+            def f1(): return x1, y1, x2, y2
+            def f2(): return tf.minimum(x1, x2), tf.minimum(y1, y2), tf.maximum(x1, x2), tf.maximum(y1, y2)
+
+            x1, y1, x2, y2 = tf.cond(tf_if_cond, f1, f2)
+
+            # stack_all_ = tf.stack([[x1_, y1_, x2_, y2_, rects[i, 4],rects[i,5], rects[i,6], rects[i,7],
+            #                          rects[i,8],rects[i,9], rects[i,10], rects[i,11], rects[i,12],
+            #                          rects[i,13], rects[i,14]]])
             stack_all = tf.stack([[x1, y1, x2, y2, rects[i, 4],rects[i,5], rects[i,6], rects[i,7],
                                      rects[i,8],rects[i,9], rects[i,10], rects[i,11], rects[i,12],
                                      rects[i,13], rects[i,14]]])
+            # pick = tf.concat([pick, stack_all_], axis=0)
             pick = tf.concat([pick, stack_all], axis=0)
             # pick = tf.concat([pick, [x1, y1, x2, y2, rectangles[i,4],
             #                          rectangles[i,5], rectangles[i,6], rectangles[i,7], rectangles[i,8],
@@ -444,9 +450,12 @@ class Onet_post_0(Layer):
             return i, rects, pick, width_raw, height_raw
 
         i, rectangles, pick, wid, heig = tf.while_loop(loop_cond, loop_body, [i, rects, pick, width_raw, height_raw],
-                                   shape_invariants=[i.get_shape(), rects.get_shape(), tf.TensorShape([None, 15]), width_raw.get_shape(), height_raw.get_shape()])
-        #
-        # return pts8, pts3
+                                   shape_invariants=[i.get_shape(), rects.get_shape(), tf.TensorShape([None, 15]),
+                                                     width_raw.get_shape(), height_raw.get_shape()])
+        pick = tf.slice(pick, [1,0], [-1, -1])
+        pick_NMS = tf.gather(pick, [0, 1, 2, 3, 4], axis=1)
+        rectangles = Pnet_post()._NMS_own(pick_NMS, 0.3, 'iom')
+
         return i, rectangles, pick, wid, heig, pick
     def call(self, inputs):
         cls = inputs[0]
@@ -462,7 +471,8 @@ class Onet_post_0(Layer):
         #                                                                                               tf.float32, tf.float32, tf.float32, tf.float32, tf.float32,
         #                                                                                               tf.float32, tf.float32, tf.float32, tf.float32, tf.float32))
         i, rectangles, pick, wid, heig, pick_1 = tf.map_fn(lambda x: self.filter_face_48net(x[0], x[1], x[2], x[3], x[4], x[5]), batch_data,
-                                        dtype=(tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32))
+                                        dtype=(tf.int32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32))
+
         return [pick]
 
     def compute_output_shape(self, input_shape):
@@ -491,6 +501,7 @@ def mainmodel():
     out_Rnet_1, out_Rnet_2 = Rnet_out()([out_nms, out_nms])
     cls_O, roi_O, pts_O, rectangles_r = out_post_Rnet()([out_Rnet_1, out_Rnet_2, rectangles_p, origin_h, origin_w, img])
     rects = Onet_post_0()([cls_O, roi_O, pts_O, rectangles_r, origin_h, origin_w])
+
     model = Model(inputs=[img, img_0, scale_0, img_1, scale_1, origin_h, origin_w], outputs=[rects])
     return model
 
