@@ -3,6 +3,7 @@ import tools_matrix as tools
 import cv2
 import matplotlib.pyplot as plt
 import time
+from keras.models import load_model
 import numpy as np
 import keras as KK
 import keras.backend as K
@@ -482,8 +483,6 @@ class Onet_post_0(Layer):
             #     (None, None, 1), (None, None, 1), (None, None, 1), (None, None, 1), (None, None, 1),
             #     (None, None, 1), (None, None, 1), (None, None, 1), (None, None, 1), (None, None, 1)]
 
-
-
 def mainmodel():
     img = Input(shape=[None, None, 3])
     img_0 = Input(shape=[None, None, 3])
@@ -495,25 +494,31 @@ def mainmodel():
     ################## --- Pnet -----############
     outs_0 = _Pnet()([img_0, scale_0, origin_h, origin_w])
     outs_1 = _Pnet()([img_1, scale_1, origin_h, origin_w])
-
     outs = concatenate([outs_0, outs_1], axis=1)
     out_nms, rectangles_p = NMS_4_Pnetouts()([outs, img])
     out_Rnet_1, out_Rnet_2 = Rnet_out()([out_nms, out_nms])
     cls_O, roi_O, pts_O, rectangles_r = out_post_Rnet()([out_Rnet_1, out_Rnet_2, rectangles_p, origin_h, origin_w, img])
     rects = Onet_post_0()([cls_O, roi_O, pts_O, rectangles_r, origin_h, origin_w])
-
     model = Model(inputs=[img, img_0, scale_0, img_1, scale_1, origin_h, origin_w], outputs=[rects])
+    # Save the weights
+    # model.save_weights('MTCNNallNet_weights.h5')
+    model.save('MTCNNallNet_weights0.h5')
+    # Save the model architecture
+    with open('MTCNNallNet_architecture.json', 'w') as f:
+        f.write(model.to_json())
+
     return model
 
 
-while (True):
+def main():
 
     print('Load picture again!')
-    img = cv2.imread(r'F:\TEST\2.jpg')
-    img = (img.copy() - 127.5) / 127.5
+    img_ = cv2.imread(r'F:\TEST\2.jpg')
+    img = (img_ - 127.5) / 127.5
     img_raw = np.expand_dims(img, axis=0)
     origin_h, origin_w, ch = img.shape
 
+    # scales = [1, 0.6797385]
     scales = [0.09587285, 0.06797385]
 
     scale_0 = scales[0]
@@ -531,12 +536,28 @@ while (True):
     height_in = np.expand_dims(origin_h, axis=0)
     width_in = np.expand_dims(origin_w, axis=0)
 
+    # model.summary()
     outs = mainmodel().predict([img_raw, scale_img_in_0, scale_in_0, scale_img_in_1, scale_in_1, height_in, width_in])
+    model5 = load_model('MTCNNallNet_weights0.h5', custom_objects={'Pnet_post':Pnet_post,
+                                                                  'NMS_4_Pnetouts':NMS_4_Pnetouts,
+                                                                  'Rnet_out':Rnet_out,
+                                                                  'out_post_Rnet':out_post_Rnet,
+                                                                  'Onet_post_0':Onet_post_0})
+    outs_2 = model5.predict([img_raw, scale_img_in_0, scale_in_0, scale_img_in_1, scale_in_1, height_in, width_in])
+    rect = outs[0][:,0:5]
+    bb_num = np.shape(rect)[0]
+    img = img_
 
-    # plt.imshow(outs[0][0,2,:,:,:])
-    # plt.title("TF_OUT")
-    # plt.show()
+    colors = 255*(np.random.standard_normal(size=(bb_num, 3)) + 1)/2
+    for i in range(bb_num):
+        bb = rect[i, 0:4]
+        color = colors[i, :]
+        # img = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (color[0], color[1], color[2]), 5)
+        img = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (255, 0, 0), 5)
+        img = cv2.putText(img, '#{}:{}'.format(i,rect[i, 4]), (int((bb[2]+bb[1])/2), bb[3]), fontFace=4, fontScale=0.5, color=(255,0,0))
+        cv2.imshow('img', img)
 
-    print('Done')
+if __name__ == '__main__':
+    main()
 
 
