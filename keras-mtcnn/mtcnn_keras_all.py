@@ -129,8 +129,8 @@ class Pnet_post(Layer):
         w = tf.subtract(tf.gather(rectangles, 2, axis=-1), tf.gather(rectangles, 0, axis=-1))
         h = tf.subtract(tf.gather(rectangles, 3, axis=-1), tf.gather(rectangles, 1, axis=-1))
         l = tf.maximum(w, h)
-        rec_1 = tf.gather(rectangles,0, axis=-1) + w*0.5 - l*0.5
-        rec_2 = tf.gather(rectangles,1, axis=-1) + h*0.5 - l*0.5
+        rec_1 = tf.gather(rectangles,0, axis=1) + w*0.5 - l*0.5
+        rec_2 = tf.gather(rectangles,1, axis=1) + h*0.5 - l*0.5
         rec_3 = rec_1 + l
         rec_4 = rec_2 + l
         rec_5 = tf.gather(rectangles,4, axis=-1)
@@ -156,7 +156,7 @@ class Pnet_post(Layer):
         bb2_tmp = (stride * tf.cast(boundingbox, tf.float32) + 11.0)*scale
         bb1 = self._tffix(bb1_tmp)
         bb2 = self._tffix(bb2_tmp)
-        boundingbox = tf.concat([bb1, bb2], -1)
+        boundingbox = tf.concat([bb1, bb2], 1)
         # index_0 = tf.gather(index_thre, 0)
         # index_1 = tf.gather(index_thre, 1)
         # i = tf.constant(0, dtype=tf.int32)
@@ -179,7 +179,7 @@ class Pnet_post(Layer):
 
         Cls_pro_GA = tf.gather(Cls_pro, 0, axis=2)
         score = tf.expand_dims(tf.gather_nd(Cls_pro_GA, thresh_index), axis=1)
-        offset = tf.stack([dx1, dx2, dx3, dx4], axis=-1)
+        offset = tf.stack([dx1, dx2, dx3, dx4], axis=1)
         boundingbox = boundingbox + offset * 12.0*scale
         rectangles = tf.concat([boundingbox, score], axis=1)
         rectangles = self.rec2square(rectangles)
@@ -192,10 +192,11 @@ class Pnet_post(Layer):
         sc = rect_i[4]
         def f1(): return x1, y1, x2, y2, sc
         def f2xy(): return tf.minimum(x1, x2), tf.minimum(y1, y2), tf.maximum(x1, x2), tf.maximum(y1, y2), sc
+        # def f2xy(): return None, None, None, None, None,
         cond_x = tf.greater(x1, x2)
         cond_y = tf.greater(y1, y2)
         cond_xy = cond_x | cond_y
-        final = tf.cond(cond_xy, f2xy, f1)
+        final = tf.cond(cond_xy, true_fn=f2xy, false_fn=f1)
         return final
     def _pick_chs(self, rect, img):
         img_shape = tf.shape(img)
@@ -267,8 +268,8 @@ class Pnet_post(Layer):
         Roi = tf.transpose(bbox_regress, perm=[2, 1, 0])                            # h, w
         rectangles = self._cls_bb2rect(Cls_pro, Roi, 1.0/scale)
         pick = self._pick_chs(rectangles, img)
-        # Pnet_rect = self._NMS_own(pick, 0.3)
-        Pnet_rect = self._NMS(pick, 0.3, 100)
+        Pnet_rect = self._NMS_own(pick, 0.3)
+        # Pnet_rect = self._NMS(pick, 0.3, 100)
         return Pnet_rect, Pnet_rect, pick
         # return pick, pick, pick
     def call(self, inputs):
@@ -448,6 +449,8 @@ while (True):
     # pnet_layer_output = get_layer_output(img, Pnet, 'Pnet_output_post')
     # output = Pnet.predict([img_0, img_1, img_2])
     output = Network.predict(img_0)
+
+
 
     # plt.imshow(output[1][0,:,:,::-1])
     # plt.title("TF_OUT")
