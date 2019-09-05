@@ -76,6 +76,7 @@ def center_loss(features, label, alfa, nrof_classes):
         loss = tf.reduce_mean(tf.square(features - centers_batch))
     return loss, centers
 
+
 def get_image_paths_and_labels(dataset):
     image_paths_flat = []
     labels_flat = []

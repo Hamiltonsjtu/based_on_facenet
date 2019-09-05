@@ -189,11 +189,11 @@ def main(args):
                 save_variables_and_metagraph(sess, saver, summary_writer, model_dir, subdir, step)
 
                 # Evaluate on LFW
-                if args.lfw_dir:
-                    evaluate(sess, lfw_paths, embeddings, labels_batch, image_paths_placeholder, labels_placeholder,
-                             batch_size_placeholder, learning_rate_placeholder, phase_train_placeholder, enqueue_op,
-                             actual_issame, args.batch_size,
-                             args.lfw_nrof_folds, log_dir, step, summary_writer, args.embedding_size)
+                # if args.lfw_dir:
+                #     evaluate(sess, lfw_paths, embeddings, labels_batch, image_paths_placeholder, labels_placeholder,
+                #              batch_size_placeholder, learning_rate_placeholder, phase_train_placeholder, enqueue_op,
+                #              actual_issame, args.batch_size,
+                #              args.lfw_nrof_folds, log_dir, step, summary_writer, args.embedding_size)
 
     return model_dir
 
@@ -218,6 +218,7 @@ def train(args, sess, dataset, epoch, image_paths_placeholder, labels_placeholde
         start_time = time.time()
         nrof_examples = len(image_paths)#args.people_per_batch * args.images_per_person
         labels_array = np.reshape(np.arange(nrof_examples), (-1, 3))
+        # labels_array = np.reshape(label_cls, (-1,3))
         image_paths_array = np.reshape(np.expand_dims(np.array(image_paths), 1), (-1, 3))
         sess.run(enqueue_op, {image_paths_placeholder: image_paths_array, labels_placeholder: labels_array})
         emb_array = np.zeros((nrof_examples, embedding_size))
