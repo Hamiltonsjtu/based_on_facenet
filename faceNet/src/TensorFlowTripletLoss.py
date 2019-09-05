@@ -423,8 +423,8 @@ def save_variables_and_metagraph(sess, saver, summary_writer, model_dir, model_n
         print('Metagraph saved in %.2f seconds' % save_time_metagraph)
     summary = tf.Summary()
     # pylint: disable=maybe-no-member
-    summary.value.add(tag='time/save_variables', simple_value=save_time_variables)
-    summary.value.add(tag='time/save_metagraph', simple_value=save_time_metagraph)
+    summary.value.add(tag='./time/save_variables', simple_value=save_time_variables)
+    summary.value.add(tag='./time/save_metagraph', simple_value=save_time_metagraph)
     summary_writer.add_summary(summary, step)
 
 
@@ -455,7 +455,7 @@ def parse_arguments(argv):
                         help='Load a pretrained model before training starts.')
     parser.add_argument('--data_dir', type=str,
                         help='Path to the data directory containing aligned face patches.',
-                        default=r'E:\train_TEST\OK')
+                        default=r'F:\SAVE_PIC')
     parser.add_argument('--model_def', type=str,
                         help='Model definition. Points to a module containing the definition of the inference graph.',
                         default='models.inception_resnet_v1')
