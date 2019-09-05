@@ -329,13 +329,15 @@ def sample_people(dataset, people_per_batch, images_per_person):
     class_indices = np.arange(nrof_classes)
     np.random.shuffle(class_indices)
 
-    i = 0
+    # i = 0
     image_paths = []
     num_per_class = []
     sampled_class_indices = []
     labels_class = []
     # Sample images from these classes until we have enough
-    while len(image_paths) < nrof_images:
+    # while len(image_paths) < nrof_images:
+    for i in range(len(class_indices)):
+        print('class num {} and current is {}'.format(len(class_indices), i))
         class_index = class_indices[i]
         nrof_images_in_class = len(dataset[class_index])
         image_indices = np.arange(nrof_images_in_class)
@@ -347,12 +349,12 @@ def sample_people(dataset, people_per_batch, images_per_person):
         labels_class += [dataset[class_index].name] * nrof_images_from_class
         image_paths += image_paths_for_class
         num_per_class.append(nrof_images_from_class)
-        i += 1
+        # i += 1
     assert len(image_paths) == len(labels_class)
     _delta = len(image_paths) - 3 * (len(image_paths) // 3)
     image_paths = image_paths[0:3 * (len(image_paths) // 3)]
     labels_class = labels_class[0:3 * (len(image_paths) // 3)]
-    assert _delta < num_per_class[-1]
+    assert _delta <= num_per_class[-1]
     num_per_class_ = num_per_class[:-1]
     num_per_class_.append(num_per_class[-1]-_delta)
     num_per_class = num_per_class_
