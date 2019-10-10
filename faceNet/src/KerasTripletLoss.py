@@ -22,6 +22,7 @@ from tensorflow.python.keras.layers import Input
 from tensorflow.python.keras.applications.inception_v3 import InceptionV3
 import math
 from tensorflow.python.keras.layers import GlobalAveragePooling2D, Dense, AveragePooling2D, Flatten, Softmax, Subtract, Lambda, Reshape, Minimum, Concatenate
+import tensorflow.python.keras.layers.normalization as normlize
 from tensorflow.python.keras.models import Model,load_model
 from scipy.spatial.distance import pdist
 from scipy.spatial.distance import squareform
@@ -31,72 +32,6 @@ from tensorflow.python.keras.callbacks import TensorBoard
 #from tensorflow.keras.layers.core import Dropout
 
 from tensorflow.python.ops.linalg.linalg_impl import norm
-# os.environ["CUDA_VISIBLE_DEVICES"] = "0"       # 使用第二块GPU（从0开始）
-#from SWATS import SwatsAdam, SwatsCheckStop
-#from tensorflow.keras.backend.tensorflow_backend import set_session
-#config = tf.ConfigProto(allow_soft_placement=True)
-# # initialize the number of epochs to train for, initial learning rate,
-# # batch size, and image dimensions
-#
-# # construct the image generator for data augmentation
-# aug = ImageDataGenerator(rotation_range=30, width_shift_range=0.2, channel_shift_range=0.2,
-#                          height_shift_range=0.2, shear_range=0.1, zoom_range=0.2,  brightness_range=[0.8, 1.2],
-#                          horizontal_flip=True, vertical_flip=True, fill_mode="constant", cval=0.0)
-#
-def load_and_resize_image(file,IMAGE_DIMS):
-    try:
-        img = cv2.imread(file)  # target_size参数前面是高
-        img_x1 = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img_x1 = img_x1.astype(np.float32)
-        '''img = image.load_img(file, target_size=(IMAGE_DIMS[0], IMAGE_DIMS[1]))  # target_size参数前面是高
-        img_x1 = img_to_array(img)'''
-        cols = img_x1.shape[1]
-        rows = img_x1.shape[0]
-
-
-        if rows > cols:
-            crop = cols
-            x_bias = 0
-            y_bias = int((rows - cols) / 2)
-        else:
-            crop = rows
-            y_bias = 0
-            x_bias = int((cols - rows) / 2)
-        img_x2 = img_x1[y_bias:y_bias+crop][x_bias:x_bias+crop]
-        img_x2 = cv2.resize(img_x2, (IMAGE_DIMS[1], IMAGE_DIMS[0]), cv2.INTER_AREA)
-    except Exception as e:
-        img_x2 = None
-    return img_x2
-
-
-def read_pic(path, IMAGE_DIMS):
-    try:
-        # img = image.load_img(path, target_size=(IMAGE_DIMS[0], IMAGE_DIMS[1]))  # target_size参数前面是高
-        # img = image.load_img(path)
-        img = cv2.imread(path)  # target_size参数前面是高
-        # x1 = cv2.resize(img, (IMAGE_DIMS[1], IMAGE_DIMS[0]), cv2.INTER_AREA)
-        size = img.shape
-        h, w = size[0], size[1]
-        # 长边缩放为min_side
-        min_side=IMAGE_DIMS[1]
-        scale = max(w, h) / float(min_side)
-        new_w, new_h = int(w / scale), int(h / scale)
-        resize_img = cv2.resize(img, (new_w, new_h))
-        # 填充至min_side * min_side
-        if new_w % 2 != 0 and new_h % 2 == 0:
-            top, bottom, left, right = (min_side - new_h) / 2, (min_side - new_h) / 2, (min_side - new_w) / 2 + 1, (min_side - new_w) / 2
-        elif new_h % 2 != 0 and new_w % 2 == 0:
-            top, bottom, left, right =(min_side - new_h) / 2 + 1, (min_side - new_h) / 2, (min_side - new_w) / 2, (min_side - new_w) / 2
-        elif new_h % 2 == 0 and new_w % 2 == 0:
-            top, bottom, left, right = (min_side - new_h) / 2, (min_side - new_h) / 2, (min_side - new_w) / 2, (min_side - new_w) / 2
-        else:
-            top, bottom, left, right = (min_side - new_h) / 2 + 1, (min_side - new_h) / 2, (min_side - new_w) / 2 + 1, (min_side - new_w) / 2
-        top, bottom, left, right=math.floor(top),math.floor(bottom),math.floor(left),math.floor(right)
-        x1 = cv2.copyMakeBorder(resize_img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=[0, 0, 0])  # 从图像边界向上,下,左,右扩的像素数目
-
-    except Exception as e:
-        x1 = None
-    return x1
 
 def generate_arrays(path, batch_size,MARGIN,GAP,IMAGE_DIMS,class_lab):
     X1 = []
@@ -442,7 +377,7 @@ def convert_frozen_pb_to_savedmodel(model, frozen_model_path, frozen_model_name,
         graph_def.ParseFromString(f.read())'''
     builder = tf.saved_model.builder.SavedModelBuilder(savedmodel_path)
     signature = {}
-    
+
     #with tf.Session(graph=tf.Graph()) as sess:
     with K.get_session() as sess:
         # name="" is important to ensure we don't get spurious prefixing
@@ -462,12 +397,12 @@ def convert_frozen_pb_to_savedmodel(model, frozen_model_path, frozen_model_name,
         output1 = g.get_tensor_by_name(encoder_out.get_output_at(0).name)
         print('[INFO] Output tensor name:', output1.name)
         print('[INFO] Output tensor shape:', output1.shape)
-        
+
         signature[signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY] = \
                 tf.saved_model.signature_def_utils.predict_signature_def(
                                                     {PREDICT_INPUTS: input1},
                                                     {PREDICT_OUTPUTS: output1})
-        
+
         builder.add_meta_graph_and_variables(sess,
                                             [tag_constants.SERVING],
                                             signature_def_map=signature
@@ -595,7 +530,7 @@ def parse_arguments(argv):
         default=r'E:\train_TEST')
     ap.add_argument('--weight_dir', type=str,
                     help='Weights restored from pre-trained InceptionV3.',
-                    default='./inception_v3_weights_tf_dim_ordering_tf_kernels_notop.h5')
+                    default=r'F:\KerasTriplet\inception_v3_weights_tf_dim_ordering_tf_kernels_notop.h5')
     ap.add_argument('--MARGIN', type=float,
                     help='distince of (an-ap)',
                     default=10.0)

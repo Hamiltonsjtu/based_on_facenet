@@ -22,6 +22,8 @@ FaceNet: A Unified Embedding for Face Recognition and Clustering: http://arxiv.o
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+#
+## 119.3.85.94，    ID： 8b9110360f03
 
 from __future__ import absolute_import
 from __future__ import division
@@ -37,7 +39,7 @@ import importlib
 import itertools
 import argparse
 import facenet
-import TZX_testdataset
+import lfw_or
 
 from tensorflow.python.ops import data_flow_ops
 
@@ -69,11 +71,11 @@ def main(args):
     if args.pretrained_model:
         print('Pre-trained model: %s' % os.path.expanduser(args.pretrained_model))
     
-    if args.lfw_dir:
-        print('LFW directory: %s' % args.lfw_dir)
-        # Read the file containing the pairs used for testing
-        # Get the paths for the corresponding images
-        lfw_paths, actual_issame = TZX_testdataset.get_test_pairs(args.lfw_dir)
+    # if args.lfw_dir:
+    #     print('LFW directory: %s' % args.lfw_dir)
+    #     # Read the file containing the pairs used for testing
+    #     # Get the paths for the corresponding images
+    #     lfw_paths, actual_issame = lfw_or.get_test_pairs(args.lfw_dir)
         
     
     with tf.Graph().as_default():
@@ -96,7 +98,7 @@ def main(args):
                                     shared_name=None, name=None)
         enqueue_op = input_queue.enqueue_many([image_paths_placeholder, labels_placeholder])
         
-        nrof_preprocess_threads = 4
+        nrof_preprocess_threads = 1
         images_and_labels = []
         for _ in range(nrof_preprocess_threads):
             filenames, label = input_queue.dequeue()
@@ -170,7 +172,9 @@ def main(args):
 
             if args.pretrained_model:
                 print('Restoring pretrained model: %s' % args.pretrained_model)
-                saver.restore(sess, os.path.expanduser(args.pretrained_model))
+                # saver.restore(sess, os.path.expanduser(args.pretrained_model))
+                facenet.load_model(args.pretrained_model)
+
 
             # Training and validation loop
             epoch = 0
@@ -220,12 +224,27 @@ def train(args, sess, dataset, epoch, image_paths_placeholder, labels_placeholde
         sess.run(enqueue_op, {image_paths_placeholder: image_paths_array, labels_placeholder: labels_array})
         emb_array = np.zeros((nrof_examples, embedding_size))
         nrof_batches = int(np.ceil(nrof_examples / args.batch_size))
-        for i in range(nrof_batches):
+
+        lab = []
+        # for i in range(nrof_batches):
+        for i in range(1):
+
+            lab_pre = lab
             batch_size = min(nrof_examples-i*args.batch_size, args.batch_size)
             emb, lab = sess.run([embeddings, labels_batch], feed_dict={batch_size_placeholder: batch_size, 
                 learning_rate_placeholder: lr, phase_train_placeholder: True})
+
+            num_non_zero_emb = len(np.where(emb_array[:, 0] != 0)[0])
+
             emb_array[lab,:] = emb
-            print('nrof_expamles: {}, \t lab start: {} \t -->  \t end: {}'.format(nrof_examples, lab[0], lab[-1]))
+            # print('nrof_expamles: {}, \t lab start: {} \t -->  \t end: {}'.format(nrof_examples, lab[0], lab[-1]))
+
+            # print(np.where(emb_array[:, 0] != 0))
+            print('emb non zeros increase {} VS lab length {}'.format(len(np.where(emb_array[:, 0] != 0)[0])-num_non_zero_emb, len(lab)))
+            # if len(np.where(emb_array[:, 0] != 0)[0])-num_non_zero_emb - len(lab) != 0:
+            #     print('Pro_lab', lab_pre)
+            #     print('VS')
+            print('Cur_Lab', lab)
         print('%.3f' % (time.time()-start_time))
 
         # Select triplets based on the embeddings
@@ -249,8 +268,8 @@ def train(args, sess, dataset, epoch, image_paths_placeholder, labels_placeholde
         loss_array = np.zeros((nrof_triplets,))
         summary = tf.Summary()
         step = 0
-        # while i < nrof_batches:
-        while i < 2:
+        while i < nrof_batches:
+        # while i < 2:
             start_time = time.time()
             batch_size = min(nrof_examples-i*args.batch_size, args.batch_size)
             feed_dict = {batch_size_placeholder: batch_size, learning_rate_placeholder: lr, phase_train_placeholder: True}
@@ -345,6 +364,7 @@ def evaluate(sess, image_paths, embeddings, labels_batch, image_paths_placeholde
         batch_size_placeholder, learning_rate_placeholder, phase_train_placeholder, enqueue_op, actual_issame, batch_size, 
         nrof_folds, log_dir, step, summary_writer, embedding_size):
     start_time = time.time()
+    sess.run(tf.initialize_all_variables())
     # Run forward pass to calculate embeddings
     print('Running forward pass on LFW images: ', end='')
     
@@ -356,20 +376,32 @@ def evaluate(sess, image_paths, embeddings, labels_batch, image_paths_placeholde
     emb_array = np.zeros((nrof_images, embedding_size))
     nrof_batches = int(np.ceil(nrof_images / batch_size))
     label_check_array = np.zeros((nrof_images,))
-    for i in xrange(nrof_batches):
 
+    lab = []
+    for i in range(nrof_batches):
+        lab_pre = lab
         batch_size = min(nrof_images-i*batch_size, batch_size)
         emb, lab = sess.run([embeddings, labels_batch], feed_dict={batch_size_placeholder: batch_size,
             learning_rate_placeholder: 0.0, phase_train_placeholder: False})
+
+        num_non_zero_emb = len(np.where(emb_array[:, 0] != 0)[0])
+
         emb_array[lab,:] = emb
         print('nrof_images: {}, \t lab start: {} \t -->  \t end: {}'.format(nrof_images, lab[0], lab[-1]))
-
         label_check_array[lab] = 1
+
+        print('emb non zeros increase: {} VS lab length: {}'.format(
+            len(np.where(emb_array[:, 0] != 0)[0]) - num_non_zero_emb, len(lab)))
+        if len(np.where(emb_array[:, 0] != 0)[0]) - num_non_zero_emb - len(lab) != 0:
+            print('Pro_lab', lab_pre)
+            print('VS')
+            print('Cur_Lab', lab)
+
     print('%.3f' % (time.time()-start_time))
     
     assert(np.all(label_check_array==1))
     
-    _, _, accuracy, val, val_std, far = TZX_testdataset.evaluate(emb_array, actual_issame, nrof_folds=nrof_folds)
+    _, _, accuracy, val, val_std, far = lfw_or.evaluate(emb_array, actual_issame, nrof_folds=nrof_folds)
     
     print('Accuracy: %1.3f+-%1.3f' % (np.mean(accuracy), np.std(accuracy)))
     print('Validation rate: %2.5f+-%2.5f @ FAR=%2.5f' % (val, val_std, far))
@@ -431,7 +463,7 @@ def parse_arguments(argv):
     parser.add_argument('--gpu_memory_fraction', type=float,
         help='Upper bound on the amount of GPU memory that will be used by the process.', default=1.0)
     parser.add_argument('--pretrained_model', type=str,
-        help='Load a pretrained model before training starts.')
+        help='Load a pretrained model before training starts.', default=r'E:\shuai\Face\faceNet\2017')
     parser.add_argument('--data_dir', type=str,
         help='Path to the data directory containing aligned face patches.',
         default=r'F:\SAVE_PIC_fill')
@@ -480,13 +512,13 @@ def parse_arguments(argv):
 
     # Parameters for validation on LFW
     parser.add_argument('--lfw_pairs', type=str,
-        help='The file containing the pairs to use for validation.', default='data/pairs.txt')
+        help='The file containing the pairs to use for validation.', default='./pairs.txt')
     parser.add_argument('--lfw_dir', type=str,
-        help='Path to the data directory containing aligned face patches.', default=r'F:\SAVE_PIC_fill')
+        help='Path to the data directory containing aligned face patches.', default=r'F:\lfw')
     parser.add_argument('--lfw_nrof_folds', type=int,
         help='Number of folds to use for cross validation. Mainly used for testing.', default=10)
     return parser.parse_args(argv)
-  
+
 
 if __name__ == '__main__':
     main(parse_arguments(sys.argv[1:]))

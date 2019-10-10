@@ -103,7 +103,8 @@ def main(args):
             images = []
             for filename in tf.unstack(filenames):
                 file_contents = tf.read_file(filename)
-                image = tf.image.decode_image(file_contents, channels=3)
+                image = tf.image.decode_jpeg(file_contents, channels=3)
+                # image = tf.image.decode_image(file_contents, channels=3)
 
                 if args.random_crop:
                     image = tf.random_crop(image, [args.image_size, args.image_size, 3])
@@ -181,12 +182,13 @@ def main(args):
                 # Train for one epoch
                 train(args, sess, train_set, epoch, image_paths_placeholder, labels_placeholder, labels_batch,
                       batch_size_placeholder, learning_rate_placeholder, phase_train_placeholder, enqueue_op,
-                      input_queue, global_step,
-                      embeddings, total_loss, train_op, summary_op, summary_writer, args.learning_rate_schedule_file,
-                      args.embedding_size, anchor, positive, negative, triplet_loss)
+                      input_queue, global_step, embeddings, total_loss, train_op, summary_op, summary_writer,
+                      args.learning_rate_schedule_file, args.embedding_size, anchor, positive, negative, triplet_loss)
 
                 # Save variables and the metagraph if it doesn't exist already
+                print('========= STARTING... SAVE MODEL ==========')
                 save_variables_and_metagraph(sess, saver, summary_writer, model_dir, subdir, step)
+                print('========= MODEL SAVED, NEXT EPOCH ==========')
 
                 # Evaluate on LFW
                 # if args.lfw_dir:
@@ -244,6 +246,7 @@ def train(args, sess, dataset, epoch, image_paths_placeholder, labels_placeholde
         triplet_paths = list(itertools.chain(*triplets))
         labels_array = np.reshape(np.arange(len(triplet_paths)), (-1, 3))
         triplet_paths_array = np.reshape(np.expand_dims(np.array(triplet_paths), 1), (-1, 3))
+        print('path: ', triplet_paths)
         sess.run(enqueue_op, {image_paths_placeholder: triplet_paths_array, labels_placeholder: labels_array})
         nrof_examples = len(triplet_paths)
         train_time = 0
@@ -307,8 +310,8 @@ def select_triplets(embeddings, nrof_images_per_class, image_paths, people_per_b
                     rnd_idx = np.random.randint(nrof_random_negs)
                     n_idx = all_neg[rnd_idx]
                     triplets.append((image_paths[a_idx], image_paths[p_idx], image_paths[n_idx]))
-                    # print('Triplet %d: (%d, %d, %d), pos_dist=%2.6f, neg_dist=%2.6f (%d, %d, %d, %d, %d)' %
-                    #    (trip_idx, a_idx, p_idx, n_idx, pos_dist_sqr, neg_dists_sqr[n_idx], nrof_random_negs, rnd_idx, i, j, emb_start_idx))
+                    print('Triplet %d: (%d, %d, %d), pos_dist=%2.6f, neg_dist=%2.6f (%d, %d, %d, %d, %d)' %
+                       (trip_idx, a_idx, p_idx, n_idx, pos_dist_sqr, neg_dists_sqr[n_idx], nrof_random_negs, rnd_idx, i, j, emb_start_idx))
                     trip_idx += 1
 
                 num_trips += 1
@@ -366,8 +369,7 @@ def sample_people(dataset, people_per_batch, images_per_person):
 
 def evaluate(sess, image_paths, embeddings, labels_batch, image_paths_placeholder, labels_placeholder,
              batch_size_placeholder, learning_rate_placeholder, phase_train_placeholder, enqueue_op, actual_issame,
-             batch_size,
-             nrof_folds, log_dir, step, summary_writer, embedding_size):
+             batch_size, nrof_folds, log_dir, step, summary_writer, embedding_size):
     start_time = time.time()
     # Run forward pass to calculate embeddings
     print('Running forward pass on LFW images: ', end='')
@@ -452,17 +454,17 @@ def parse_arguments(argv):
     parser.add_argument('--models_base_dir', type=str,
                         help='Directory where to write trained models and checkpoints.', default='~/models/facenet')
     parser.add_argument('--gpu_memory_fraction', type=float,
-                        help='Upper bound on the amount of GPU memory that will be used by the process.', default=1.0)
+                        help='Upper bound on the amount of GPU memory that will be used by the process.', default=0.5)
     parser.add_argument('--pretrained_model', type=str,
                         help='Load a pretrained model before training starts.')
     parser.add_argument('--data_dir', type=str,
                         help='Path to the data directory containing aligned face patches.',
-                        default=r'F:\SAVE_PIC')
+                        default=r'F:\SAVE_PIC_fill')
     parser.add_argument('--model_def', type=str,
                         help='Model definition. Points to a module containing the definition of the inference graph.',
                         default='models.inception_resnet_v1')
     parser.add_argument('--max_nrof_epochs', type=int,
-                        help='Number of epochs to run.', default=500)
+                        help='Number of epochs to run.', default=200)
     parser.add_argument('--batch_size', type=int,
                         help='Number of images to process in a batch.', default=90)
     parser.add_argument('--image_size', type=int,
@@ -480,9 +482,9 @@ def parse_arguments(argv):
     parser.add_argument('--random_crop',
                         help='Performs random cropping of training images. If false, the center image_size pixels from the training images are used. ' +
                              'If the size of the images in the data directory is equal to image_size no cropping is performed',
-                        action='store_true')
+                        action='store_false')
     parser.add_argument('--random_flip',
-                        help='Performs random horizontal flipping of training images.', action='store_true')
+                        help='Performs random horizontal flipping of training images.', action='store_false')
     parser.add_argument('--keep_probability', type=float,
                         help='Keep probability of dropout for the fully connected layer(s).', default=1.0)
     parser.add_argument('--weight_decay', type=float,

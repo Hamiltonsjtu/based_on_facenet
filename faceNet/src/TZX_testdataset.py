@@ -62,6 +62,10 @@ def calculate_roc(thresholds, embeddings1, embeddings2, actual_issame, nrof_fold
     tprs = np.zeros((nrof_folds, nrof_thresholds))
     fprs = np.zeros((nrof_folds, nrof_thresholds))
     accuracy = np.zeros((nrof_folds))
+    tp = np.zeros((nrof_folds))
+    tn = np.zeros((nrof_folds))
+    fp = np.zeros((nrof_folds))
+    fn = np.zeros((nrof_folds))
 
     indices = np.arange(nrof_pairs)
 
@@ -77,17 +81,17 @@ def calculate_roc(thresholds, embeddings1, embeddings2, actual_issame, nrof_fold
         for threshold_idx, threshold in enumerate(thresholds):
             _, _, acc_train[threshold_idx] = calculate_accuracy(threshold, dist[train_set], actual_issame[train_set])
         best_threshold_index = np.argmax(acc_train)
-        for threshold_idx, threshold in enumerate(thresholds):
-            tprs[fold_idx, threshold_idx], fprs[fold_idx, threshold_idx], _ = calculate_accuracy(threshold,
-                                                                                                 dist[test_set],
-                                                                                                 actual_issame[
-                                                                                                     test_set])
-        _, _, accuracy[fold_idx] = calculate_accuracy(thresholds[best_threshold_index], dist[test_set],
+        # for threshold_idx, threshold in enumerate(thresholds):
+        #     tprs[fold_idx, threshold_idx], fprs[fold_idx, threshold_idx], _ = calculate_accuracy(threshold,
+        #                                                                                          dist[test_set],
+        #                                                                                          actual_issame[
+        #                                                                                              test_set])
+        tp[fold_idx], fp[fold_idx], tn[fold_idx], fn[fold_idx], accuracy[fold_idx] = calculate_accuracy(thresholds[best_threshold_index], dist[test_set],
                                                       actual_issame[test_set])
 
-        tpr = np.mean(tprs, 0)
-        fpr = np.mean(fprs, 0)
-    return tpr, fpr, accuracy
+        # tpr = np.mean(tprs, 0)
+        # fpr = np.mean(fprs, 0)
+    return tp, fp, tn, fn, accuracy
 
 def calculate_accuracy(threshold, dist, actual_issame):
     predict_issame = np.less(dist, threshold)
@@ -99,7 +103,7 @@ def calculate_accuracy(threshold, dist, actual_issame):
     tpr = 0 if (tp + fn == 0) else float(tp) / float(tp + fn)
     fpr = 0 if (fp + tn == 0) else float(fp) / float(fp + tn)
     acc = float(tp + tn) / dist.size
-    return tpr, fpr, acc
+    return tp, fp, tn, fn, acc
 
 
 def calculate_val_far(threshold, dist, actual_issame):
@@ -185,17 +189,19 @@ def get_test_pairs(tzx_dir):
     #         nrof_skipped_pairs += 1
     # if nrof_skipped_pairs > 0:
     #     print('Skipped %d image pairs' % nrof_skipped_pairs)
-    nnum = 999 # nnum should be times of 3
+    nnum = 2000 # nnum should be times of 3
+
     sl_peo_t = np.random.randint(0, len(os.listdir(tzx_dir)), nnum)
     for i in sl_peo_t:
         peo_dir = os.listdir(tzx_dir)
-        peo_path = tzx_dir + '/' + peo_dir[i]
+        peo_path = os.path.join(tzx_dir, peo_dir[i])
         img_dir = os.listdir(peo_path)
         # print('peo_path num {} and its path {}'.format(len(os.listdir(peo_path)), peo_path))
         sl_img = random.sample(range(len(os.listdir(peo_path))), 2)
-        img_path_0 = peo_path + '/' + img_dir[sl_img[0]]
-        img_path_1 = peo_path + '/' + img_dir[sl_img[1]]
-        path_list += (img_path_0, img_path_1)
+        img_path_0 = os.path.join(peo_path, img_dir[sl_img[0]])
+        img_path_1 = os.path.join(peo_path, img_dir[sl_img[1]])
+        path_list.append(img_path_0)
+        path_list.append(img_path_1)
         issame_list.append(True)
 
     for i in range(nnum):
