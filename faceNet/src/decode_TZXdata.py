@@ -27,13 +27,6 @@ import os
 #                 os.remove(img_all_path)
 #             print('---- delete empty folder ----')
 #             os.removedirs(peo_path)
-
-# dirpath = r'F:\SAVE_PIC_1\savePic0827'
-# dirpath_fill = r'F:\SAVE_PIC_1_fill'
-# # dirpath = r'F:\TEST_crop'
-# # dirpath_fill = r'F:\TEST_crop_fill'
-# os.makedirs(dirpath_fill, exist_ok = True)
-#
 #
 # def is_chinese(uchar):
 #     """判断一个unicode是否是汉字"""
@@ -42,45 +35,6 @@ import os
 #     else:
 #         return False
 #
-# for i in os.listdir(dirpath):
-#     i_path = dirpath + '/' + i
-#     os.makedirs(dirpath_fill + '/' + i, exist_ok=True)
-#     for j in os.listdir(i_path):
-#         if j == '其他':
-#             continue
-#         elif j.endswith('.db'):
-#             continue
-#         elif j.endswith('jpg'):
-#             continue
-#         else:
-#             peo_path = i_path + '/' + j
-#             os.makedirs(dirpath_fill + '/' + i + '/' + j, exist_ok=True)
-#             for k in os.listdir(peo_path):
-#                 if k.endswith('jpg'):
-#                     img_path = peo_path + '/' + k
-#                     img = cv2.imread(img_path)
-#                     if len(np.shape(img)) == 0:
-#                         continue
-#                     else:
-#                         print('img_path: {} and type{}'.format(img_path, type(img)))
-#                         height, width, chn = img.shape[0], img.shape[1], img.shape[2]
-#                         max_h_w = max(height, width)
-#                         ratio = 300/max_h_w
-#                         h_n = int(height*ratio)
-#                         w_n = int(width*ratio)
-#                         img = cv2.resize(img, (w_n, h_n))
-#                         # center_h = h_n/2
-#                         # center_w = w_n/2
-#                         top = int(np.floor((300-h_n)/2))
-#                         bottom = int(np.ceil((300-h_n)/2))
-#                         left = int(np.floor((300-w_n)/2))
-#                         right = int(np.ceil((300-w_n)/2))
-#                         img_n = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=[0, 0, 0])
-#                         img_n = cv2.resize(img_n,(300, 300))
-#                         savepath = dirpath_fill + '/' + i + '/' + j + '/' + i+'_'+j+'_'+k
-#                         cv2.imwrite(savepath, img_n)
-#                 else:
-#                     continue
 
 # for file in os.listdir(dirpath1):
 #     img = cv2.imread(dirpath1+os.sep+file)
@@ -102,11 +56,19 @@ import os
 
 
 
-scr = r'F:\SAVE_PIC_1_fill'
-dst = r'F:\SAVE_PIC_1_fill_1'
-if not os.path.exists(dst):
-    os.mkdir(dst)
-sub_dir = os.listdir(scr)
+scr = r'F:\NotBusiness'
+dst = r'F:\NotBusiness_fill'
+dirpath = dst
+dirpath_fill = dst
+
+# scr = r'F:\OF_TEST'
+# dst = r'F:\OF_TEST_fill'
+# dirpath = dst
+# dirpath_fill = dst
+
+# if not os.path.exists(dst):
+#     os.mkdir(dst)
+# sub_dir = os.listdir(scr)
 #
 # for i in sub_dir:
 #     sub_dir_full = scr + '/' + i
@@ -132,26 +94,78 @@ sub_dir = os.listdir(scr)
 #             print('=== delete not folder files ===')
 #             os.remove(peo_dir)
 
-for i in sub_dir:
-    sub_dir_full = os.path.join(scr, i)
-    peos = os.listdir(sub_dir_full)
-    for j in peos:
-        sub_sub_dir_full = os.path.join(sub_dir_full, j)
-        subsub2sub = os.path.join(dst, j)
-        if not os.path.exists(subsub2sub):
-            os.mkdir(subsub2sub)
-        # os.system('scp sub_sub_dir_full subsub2sub')
-        for k in os.listdir(sub_sub_dir_full):
-            if k.endswith('.db'):
-                continue
-            else:
-                img_path = os.path.join(sub_sub_dir_full, k)
-                img_subsub2sub = os.path.join(subsub2sub, k)
-                if os.path.isdir(img_path):
-                    continue
-                else:
-                    shutil.copy2(img_path, img_subsub2sub, follow_symlinks=True)
+# for i in sub_dir:
+#     sub_dir_full = os.path.join(scr, i)
+#     peos = os.listdir(sub_dir_full)
+#     for j in peos:
+#         sub_sub_dir_full = os.path.join(sub_dir_full, j)
+#         subsub2sub = os.path.join(dst, i+'_'+j)
+#         if not os.path.exists(subsub2sub):
+#             os.mkdir(subsub2sub)
+#         # os.system('scp sub_sub_dir_full subsub2sub')
+#         for k in os.listdir(sub_sub_dir_full):
+#             if k.endswith('.db'):
+#                 continue
+#             else:
+#                 img_path = os.path.join(sub_sub_dir_full, k)
+#                 img_subsub2sub = os.path.join(subsub2sub, k)
+#                 if os.path.isdir(img_path):
+#                     continue
+#                 else:
+#                     shutil.copy2(img_path, img_subsub2sub, follow_symlinks=True)
 
+
+####   RESHAPE AND FILL THE RAW IMAGE    ####
+
+
+os.makedirs(dirpath_fill, exist_ok = True)
+
+for i in os.listdir(scr):
+    i_path = scr + '/' + i
+    os.makedirs(scr + '/' + i, exist_ok=True)
+    for j in os.listdir(i_path):
+        if j == '其他':
+            continue
+        elif j.endswith('.db'):
+            continue
+        # elif j.endswith('jpg'):
+        #     continue
+        else:
+            peo_path = i_path + '/' + j
+            # os.makedirs(dirpath_fill + '/' + i + '/' + j, exist_ok=True)
+            for k in os.listdir(peo_path):
+                if k.endswith('jpg') or k.endswith('png'):
+                    img_path = peo_path
+                    img = cv2.imread(os.path.join(img_path, k))
+                    if len(np.shape(img)) == 0:
+                        continue
+                    else:
+                        print('img_path: {} and type{}'.format(img_path, type(img)))
+                        height, width, chn = img.shape[0], img.shape[1], img.shape[2]
+                        max_h_w = max(height, width)
+                        dimsize = 600
+                        ratio = dimsize/max_h_w
+                        h_n = int(height*ratio)
+                        w_n = int(width*ratio)
+                        img = cv2.resize(img, (w_n, h_n))
+                        # center_h = h_n/2
+                        # center_w = w_n/2
+                        top = int(np.floor((dimsize-h_n)/2))
+                        bottom = int(np.ceil((dimsize-h_n)/2))
+                        left = int(np.floor((dimsize-w_n)/2))
+                        right = int(np.ceil((dimsize-w_n)/2))
+                        img_n = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+                        img_n = cv2.resize(img_n,(dimsize, dimsize))
+                        savepath_file = dirpath_fill + '/' + i + '/' + j
+                        os.makedirs(savepath_file, exist_ok=True)
+
+                        savepath = dirpath_fill + '/' + i + '/' + j + '/' + k
+
+                        cv2.imwrite(savepath, img_n)
+                else:
+                    continue
+
+#
 # import tensorflow as tf
 #
 # scr_1 = r'F:\dd\110105036-2126-5505_8\hujintao_0000.jpg'
@@ -165,5 +179,5 @@ for i in sub_dir:
 #     print('OK!')
 # img_1 = cv2.imread(scr_1)
 # img_2 = cv2.imread(scr_2)
-
+#
 # print('img_1 and img_2 shape is {}--{}'.format(img_1.shape, img_2.shape))
