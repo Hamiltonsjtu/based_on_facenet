@@ -53,7 +53,6 @@ def UnstructBox_Square(oriImage, oriBox, NewBox):
     return img, boxImg
 
 
-img_dir = r'F:\FocusScreen\Images'
 # img_cls = [img_dir + '/' + i for i in os.listdir(img_dir) if os.path.isdir(img_dir + '/' + i)]
 
 # # df = pd.read_table([img_dir + '/' + i for i in os.listdir(img_dir) if i.endswith('txt')][0])
@@ -77,13 +76,21 @@ img_dir = r'F:\FocusScreen\Images'
 # # # fm = open(r'./Images_Anno.txt', 'a+')
 # # df.to_csv(r'./Image_Anono.csv')
 
-df = pd.read_csv(r'F:\FocusScreen\Image_Anon.csv', sep=',')
+df = pd.read_csv(r'F:\FocusScreen\eye_all.txt', header = None,sep=',')
+df.columns = ['name', 'screen_xtl', 'screen_ytl', 'screen_xbr', 'screen_ybr', 'label','width', 'height', 'head_xtl', 'head_ytl', 'head_xbr', 'head_ybr', ]
+# df_up = df.loc[df['label'].isin(['no', 'yes', 'unsure'])]
+# df_up.to_csv(r'./Image_Anono_up.csv')
+img_dir = r'F:\FocusScreen\Images'
 
+img_dst = r'F:\FocusScreen\Headmages'
+if not os.path.exists(img_dst):
+    os.mkdir(img_dst)
+ann_dst = r'F:\FocusScreen\Img_anno.csv'
+ann_data = []
 img_paths = os.listdir(img_dir)
-
 for k in img_paths:
     # original image shape
-    # k = r'F:\FocusScreen\FocusImage\yes\2019_10_07_00_30_19_225039882_330110005-2754-8338.jpg'
+    # k = '2019_10_07_00_30_38_D34308405_310104017-4313-9694.jpg'
     img_path = img_dir + '/' + k
     image = cv2.imread(img_path)
     ori_h, ori_w, c = image.shape
@@ -91,10 +98,8 @@ for k in img_paths:
     # namely the ratio of 720*1280 or 1080*1920
     w = 720
     h = 1280
-
-    # print('df len: ', len(df))
     img_loc_data = df
-    if len(df[df['name'] == k]) != 1:
+    if len(df[df['name'] == k]) != 0:
         for i in range(len(df[df['name'] == k])):
             head_xtl = float(list(df[df['name'] == k]['head_xtl'])[i])
             head_ytl = float(list(df[df['name'] == k]['head_ytl'])[i])
@@ -114,25 +119,39 @@ for k in img_paths:
             head = [head_xtl_u, head_ybr_u, head_xbr_u, head_ytl_u]
             screen = [screen_xtl_u, screen_ybr_u, screen_xbr_u, screen_ytl_u]
 
-            # head_img = img_n[head_ytl_u:head_ybr_u, head_xtl_u:head_xbr_u, :]
             head_img_fill, head_img = UnstructBox_Square(img_n, [head_ytl_u,head_ybr_u, head_xtl_u,head_xbr_u], (255,255))
-            cv2.imshow('original_head', head_img)
-            cv2.imshow('fill_head', head_img_fill)
 
+            # cv2.imshow('original_head', head_img)
+            # cv2.imshow('fill_head', head_img_fill)
+            k_name, extension = os.path.splitext(k)
+            head_img_path = img_dst + '/' + k_name + '_' + str(i) + extension
+            cv2.imwrite(head_img_path, head_img_fill)
+            pair_label = list(df[df['name'] == k]['label'])[i]
+            single = [k_name + '_' + str(i) + extension, screen_xtl_u, screen_ybr_u, screen_xbr_u, screen_ytl_u, pair_label, head_xtl, head_ybr, head_xbr, head_ytl]
+            ann_data.append(single)
 
-            image = cv2.rectangle(image, (int(head_xtl), int(head_ybr)), (int(head_xbr), int(head_ytl)), (0,0,255))
-            orig_img = cv2.rectangle(image, (int(screen_xtl), int(screen_ybr)), (int(screen_xbr), int(screen_ytl)), (0,255,0))
-            txt_img_ = cv2.putText(orig_img, str(i) + '_' + str(list(df[df['name'] == k]['label'])[i]), (int(head_xtl), int(head_ybr)), cv2.FONT_HERSHEY_COMPLEX,2,(0,0,255),2)
-            cv2.imshow('original', txt_img_)
-
-            img_n = cv2.rectangle(img_n, (int(screen_xtl_u), int(screen_ybr_u)), (int(screen_xbr_u), int(screen_ytl_u)), (0,255,0))
-            reshape_img = cv2.rectangle(img_n, (int(head_xtl_u), int(head_ybr_u)), (int(head_xbr_u), int(head_ytl_u)), (0,0,255))
-            txt_img = cv2.putText(reshape_img, str(i) + '_' + str(list(df[df['name'] == k]['label'])[i]), (int(head_xtl_u), int(head_ybr_u)), cv2.FONT_HERSHEY_COMPLEX,2,(0,0,255),2)
-            cv2.imshow('resized', txt_img)
-
-            cv2.waitKey(3000)
-            cv2.destroyAllWindows()
+            # image = cv2.rectangle(image, (int(head_xtl), int(head_ybr)), (int(head_xbr), int(head_ytl)), (0,0,255))
+            # orig_img = cv2.rectangle(image, (int(screen_xtl), int(screen_ybr)), (int(screen_xbr), int(screen_ytl)), (0,255,0))
+            # txt_img_ = cv2.putText(orig_img, str(i) + '_' + str(list(df[df['name'] == k]['label'])[i]), (int(head_xtl), int(head_ybr)), cv2.FONT_HERSHEY_COMPLEX,2,(0,0,255),2)
+            # cv2.imshow('original_' + k_name, txt_img_)
+            #
+            # img_n = cv2.rectangle(img_n, (int(screen_xtl_u), int(screen_ybr_u)), (int(screen_xbr_u), int(screen_ytl_u)), (0,255,0))
+            # reshape_img = cv2.rectangle(img_n, (int(head_xtl_u), int(head_ybr_u)), (int(head_xbr_u), int(head_ytl_u)), (0,0,255))
+            # txt_img = cv2.putText(reshape_img, str(i) + '_' + str(list(df[df['name'] == k]['label'])[i]), (int(head_xtl_u), int(head_ybr_u)), cv2.FONT_HERSHEY_COMPLEX,2,(0,0,255),2)
+            # cv2.imshow('resized_' + k_name, txt_img)
+            #
+            # cv2.waitKey(3000)
+            # cv2.destroyAllWindows()
     else:
         print('-----  image is not in ano.txt  ----')
         continue
+
+pd_update = pd.DataFrame(ann_data)
+pd_update.columns = ['name', 'screen_xtl', 'screen_ybr', 'screen_xbr', 'screen_ytl', 'pair_label', 'head_xtl', 'head_ybr', 'head_xbr', 'head_ytl']
+# pd_update.rename(columns={0:'name', 1: 'head_xtl',
+#                           2: 'head_ybr', 3: 'head_xbr',
+#                           4: 'head_ytl', 5: 'pair_label',
+#                           6: 'screen_xtl_u', 7: 'screen_ybr_u',
+#                           8: 'screen_xbr_u', 9: 'screen_ytl_u'}, inplace = True)
+pd_update.to_csv(r'./Head_Anono.csv')
 
